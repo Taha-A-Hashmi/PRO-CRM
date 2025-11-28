@@ -12,7 +12,7 @@ app = Flask(__name__)
 # 1. On Local: It uses localhost (requires MongoDB installed).
 # 2. On Vercel: You MUST set the 'MONGO_URI' environment variable in Vercel Settings.
 #    If not set, it defaults to localhost and will FAIL on Vercel.
-mongo_uri = os.environ.get("MONGO_URI", "mongodb+srv://taha-a-hashmi:123@cluster0.df0zvqg.mongodb.net/hospital_crm_db?appName=Cluster0")
+mongo_uri = os.environ.get("MONGO_URI", "mongodb+srv://taha-a-hashmi:123@cluster0.vxgxiip.mongodb.net/hospital_crm_db?retryWrites=true&w=majority&appName=Cluster0")
 app.config["MONGO_URI"] = mongo_uri
 
 try:
