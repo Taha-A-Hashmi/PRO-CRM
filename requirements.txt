@@ -1,1 +1,4 @@
-flask\nflask_pymongo\npandas\nopenpyxl\n
+flask
+flask_pymongo
+pandas
+openpyxl
