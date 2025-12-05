@@ -1,385 +1,669 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>PRO - Pakistan Recovery Oasis HMS</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Nastaliq+Urdu:wght@400;700&display=swap');
-        .urdu-text { font-family: 'Noto Nastaliq Urdu', 'Arial', sans-serif; direction: rtl; text-align: right; line-height: 1.8; }
-        /* Print styles */
-        @media print {
-            body * { visibility: hidden; }
-            #printable-area, #printable-area * { visibility: visible; }
-            #printable-area { position: absolute; left: 0; top: 0; width: 100%; background: white; color: black; }
-            .no-print { display: none !important; }
-            .page-break { page-break-after: always; }
-            .print-container { padding: 20px; font-family: 'Times New Roman', serif; }
-            .print-header { display: flex; align-items: center; justify-content: center; margin-bottom: 20px; border-bottom: 2px solid #166534; padding-bottom: 10px; gap: 20px; }
-            .print-logo-icon { font-size: 40pt; color: #166534; }
-            .print-title-block { text-align: left; }
-            .print-pro { font-size: 36pt; font-weight: bold; color: #166534; line-height: 1; letter-spacing: 2px; }
-            .print-sub-pro { font-size: 14pt; font-weight: bold; color: #333; text-transform: uppercase; letter-spacing: 1px; }
-            .print-tagline { font-size: 10pt; color: #555; }
-            .print-row { display: flex; margin-bottom: 8px; border-bottom: 1px dotted #ccc; padding-bottom: 2px; }
-            .print-label { font-weight: bold; width: 180px; }
-            .print-value { flex: 1; }
-            .print-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-            .print-table th, .print-table td { border: 1px solid black; padding: 5px; text-align: left; font-size: 10pt; }
-            .urdu-row { margin-bottom: 15px; }
-            .box-section { border: 1px solid black; padding: 10px; margin-top: 20px; border-radius: 5px; }
+      @import url('https://fonts.googleapis.com/css2?family=Noto+Nastaliq+Urdu:wght@400;700&display=swap');
+      .urdu-text {
+        font-family: 'Noto Nastaliq Urdu', 'Arial', sans-serif;
+        direction: rtl;
+        text-align: right;
+        line-height: 1.8;
+      }
+      /* Print styles */
+      @media print {
+        body * {
+          visibility: hidden;
         }
-        #printable-area { display: none; }
-        @media print { #printable-area { display: block; } }
+        #printable-area,
+        #printable-area * {
+          visibility: visible;
+        }
+        #printable-area {
+          position: absolute;
+          left: 0;
+          top: 0;
+          width: 100%;
+          background: white;
+          color: black;
+        }
+        .no-print {
+          display: none !important;
+        }
+        .page-break {
+          page-break-after: always;
+        }
+        .print-container {
+          padding: 20px;
+          font-family: 'Times New Roman', serif;
+        }
+        .print-header {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin-bottom: 20px;
+          border-bottom: 2px solid #166534;
+          padding-bottom: 10px;
+          gap: 20px;
+        }
+        .print-logo-icon {
+          font-size: 40pt;
+          color: #166534;
+        }
+        .print-title-block {
+          text-align: left;
+        }
+        .print-pro {
+          font-size: 36pt;
+          font-weight: bold;
+          color: #166534;
+          line-height: 1;
+          letter-spacing: 2px;
+        }
+        .print-sub-pro {
+          font-size: 14pt;
+          font-weight: bold;
+          color: #333;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+        }
+        .print-tagline {
+          font-size: 10pt;
+          color: #555;
+        }
+        .print-row {
+          display: flex;
+          margin-bottom: 8px;
+          border-bottom: 1px dotted #ccc;
+          padding-bottom: 2px;
+        }
+        .print-label {
+          font-weight: bold;
+          width: 180px;
+        }
+        .print-value {
+          flex: 1;
+        }
+        .print-table {
+          width: 100%;
+          border-collapse: collapse;
+          margin-top: 10px;
+        }
+        .print-table th,
+        .print-table td {
+          border: 1px solid black;
+          padding: 5px;
+          text-align: left;
+          font-size: 10pt;
+        }
+        .urdu-row {
+          margin-bottom: 15px;
+        }
+        .box-section {
+          border: 1px solid black;
+          padding: 10px;
+          margin-top: 20px;
+          border-radius: 5px;
+        }
+      }
+      #printable-area {
+        display: none;
+      }
+      @media print {
+        #printable-area {
+          display: block;
+        }
+      }
     </style>
     <script>
-        let patientsData = [];
-        let currentPatientId = null;
-        let admissionChart = null;
-        let currentUser = { isLoggedIn: false, role: 'Guest', username: '' };
-        
-        // --- UTILS ---
-        const formatCurrency = (amount) => new Intl.NumberFormat('en-PK', { style: 'currency', currency: 'PKR', minimumFractionDigits: 0 }).format(amount);
-        const formatNumber = (num) => new Intl.NumberFormat('en-US').format(num);
+      let patientsData = [];
+      let currentPatientId = null;
+      let admissionChart = null;
+      let currentUser = { isLoggedIn: false, role: 'Guest', username: '' };
 
-        // --- AUTH & SETUP ---
-        function updateNavVisibility() {
-            // Canteen visible to Admin and Canteen roles
-            const navCanteen = document.getElementById('nav-canteen');
-            if (navCanteen) navCanteen.style.display = (currentUser.role === 'Admin' || currentUser.role === 'Canteen') ? 'block' : 'none';
-            
-            // User Management visible to Admin only
-            const navUsers = document.getElementById('nav-users');
-            if (navUsers) navUsers.style.display = (currentUser.role === 'Admin') ? 'block' : 'none';
+      // --- UTILS ---
+      const formatCurrency = (amount) =>
+        new Intl.NumberFormat('en-PK', {
+          style: 'currency',
+          currency: 'PKR',
+          minimumFractionDigits: 0,
+        }).format(amount);
+      const formatNumber = (num) => new Intl.NumberFormat('en-US').format(num);
 
-            // New Admission button visible to Admin/Doctor
-            const newPatientBtn = document.getElementById('add-new-patient-btn');
-            if (newPatientBtn) newPatientBtn.style.display = (currentUser.role === 'Admin' || currentUser.role === 'Doctor') ? 'flex' : 'none';
+      // --- AUTH & SETUP ---
+      function updateNavVisibility() {
+        // Canteen visible to Admin and Canteen roles
+        const navCanteen = document.getElementById('nav-canteen');
+        if (navCanteen)
+          navCanteen.style.display =
+            currentUser.role === 'Admin' || currentUser.role === 'Canteen' ? 'block' : 'none';
+
+        // User Management visible to Admin only
+        const navUsers = document.getElementById('nav-users');
+        if (navUsers) navUsers.style.display = currentUser.role === 'Admin' ? 'block' : 'none';
+
+        // New Admission button visible to Admin/Doctor
+        const newPatientBtn = document.getElementById('add-new-patient-btn');
+        if (newPatientBtn)
+          newPatientBtn.style.display =
+            currentUser.role === 'Admin' || currentUser.role === 'Doctor' ? 'flex' : 'none';
+      }
+
+      async function initApp() {
+        await checkSession();
+        if (currentUser.isLoggedIn) {
+          updateNavVisibility();
+          await fetchPatients();
+          window.navigateTo('dashboard-view');
+        } else {
+          window.navigateTo('login-view');
         }
-
-        async function initApp() {
-            await checkSession();
-            if (currentUser.isLoggedIn) {
-                updateNavVisibility();
-                await fetchPatients();
-                window.navigateTo('dashboard-view');
-            } else {
-                window.navigateTo('login-view');
+      }
+      async function checkSession() {
+        try {
+          const res = await fetch('/api/auth/session');
+          if (res.ok) {
+            const data = await res.json();
+            if (data.is_logged_in) {
+              currentUser = {
+                isLoggedIn: true,
+                role: data.role,
+                username: data.username,
+                name: data.name,
+              };
+              document.getElementById('logged-in-user').innerText = `${data.name} (${data.role})`;
+              return true;
             }
+          }
+        } catch (e) {
+          console.error('Session check error:', e);
         }
-        async function checkSession() {
-            try {
-                const res = await fetch('/api/auth/session');
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data.is_logged_in) {
-                        currentUser = { isLoggedIn: true, role: data.role, username: data.username, name: data.name };
-                        document.getElementById('logged-in-user').innerText = `${data.name} (${data.role})`;
-                        return true;
-                    }
-                }
-            } catch (e) { console.error("Session check error:", e); }
-            currentUser = { isLoggedIn: false, role: 'Guest', username: '' };
-            return false;
+        currentUser = { isLoggedIn: false, role: 'Guest', username: '' };
+        return false;
+      }
+
+      window.handleLogin = async function (e) {
+        e.preventDefault();
+        const username = document.getElementById('login-username').value;
+        const password = document.getElementById('login-password').value;
+        try {
+          const res = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password }),
+          });
+          if (res.ok) {
+            const data = await res.json();
+            currentUser = {
+              isLoggedIn: true,
+              role: data.role,
+              username: data.username,
+              name: data.name,
+            };
+            document.getElementById('logged-in-user').innerText = `${data.name} (${data.role})`;
+            updateNavVisibility();
+            await initApp();
+          } else {
+            const err = await res.json();
+            alert(err.error || 'Login failed.');
+          }
+        } catch (e) {
+          alert('An error occurred during login.');
+          console.error(e);
+        }
+      };
+
+      window.handleLogout = async function () {
+        await fetch('/api/auth/logout', { method: 'POST' });
+        currentUser = { isLoggedIn: false, role: 'Guest', username: '' };
+        patientsData = [];
+        window.navigateTo('login-view');
+      };
+
+      // --- NAVIGATION & VIEW MANAGEMENT ---
+      window.navigateTo = function (viewId) {
+        document.querySelectorAll('.view-section').forEach((el) => el.classList.add('hidden'));
+        document.getElementById(viewId).classList.remove('hidden');
+        document.querySelectorAll('.nav-item').forEach((el) => {
+          el.classList.remove('bg-green-800', 'text-white');
+          el.classList.add('text-green-100');
+        });
+
+        const navIdMap = {
+          'dashboard-view': 'nav-dash',
+          'patients-view': 'nav-patients',
+          'canteen-view': 'nav-canteen',
+          'user-management-view': 'nav-users',
+        };
+        const navId = navIdMap[viewId];
+        const navEl = document.getElementById(navId);
+        if (navEl) {
+          navEl.classList.remove('text-green-100');
+          navEl.classList.add('bg-green-800', 'text-white');
         }
 
-        window.handleLogin = async function(e) {
-            e.preventDefault();
-            const username = document.getElementById('login-username').value;
-            const password = document.getElementById('login-password').value;
-            try {
-                const res = await fetch('/api/auth/login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password })
-                });
-                if (res.ok) {
-                    const data = await res.json();
-                    currentUser = { isLoggedIn: true, role: data.role, username: data.username, name: data.name };
-                    document.getElementById('logged-in-user').innerText = `${data.name} (${data.role})`;
-                    updateNavVisibility();
-                    await initApp();
-                } else {
-                    const err = await res.json();
-                    alert(err.error || "Login failed.");
-                }
-            } catch (e) { alert("An error occurred during login."); console.error(e); }
+        if (viewId === 'dashboard-view') updateDashboard();
+        if (viewId === 'canteen-view') renderCanteenBreakdown();
+        if (viewId === 'user-management-view') renderUserManagement();
+      };
+
+      // --- DASHBOARD ---
+      async function updateDashboard() {
+        try {
+          const res = await fetch('/api/dashboard');
+          if (!res.ok) throw new Error('Failed to fetch dashboard metrics');
+          const metrics = await res.json();
+
+          document.getElementById('dash-total').innerText = formatNumber(metrics.totalPatients);
+          document.getElementById('dash-today').innerText = formatNumber(
+            metrics.admissionsThisMonth
+          );
+          document.getElementById('dash-income').innerText = formatCurrency(
+            metrics.totalIncomeThisMonth
+          );
+          document.getElementById('dash-canteen-sales').innerText = formatCurrency(
+            metrics.totalCanteenSalesThisMonth
+          );
+
+          const ctx = document.getElementById('admissionChart');
+          if (ctx) {
+            const labels = [],
+              data = [];
+            for (let i = 4; i >= 0; i--) {
+              const d = new Date();
+              d.setDate(d.getDate() - i);
+              const dateStr = d.toISOString().split('T')[0];
+              labels.push(d.toLocaleDateString('en-US', { weekday: 'short' }));
+              data.push(patientsData.filter((p) => p.admissionDate === dateStr).length);
+            }
+            if (admissionChart) admissionChart.destroy();
+            admissionChart = new Chart(ctx, {
+              type: 'bar',
+              data: {
+                labels: labels,
+                datasets: [
+                  { label: 'Admissions', data: data, backgroundColor: '#16a34a', borderRadius: 6 },
+                ],
+              },
+              options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } },
+              },
+            });
+          }
+        } catch (e) {
+          console.error('Dashboard Error:', e);
+        }
+      }
+
+      // --- PATIENTS & DIRECTORY ---
+      async function fetchPatients() {
+        try {
+          const res = await fetch('/api/patients');
+          if (!res.ok) throw new Error('Failed to fetch patients');
+          patientsData = await res.json();
+          renderPatientsTable(patientsData);
+          if (currentPatientId) {
+            const p = patientsData.find((x) => (x._id || x.id) === currentPatientId);
+            if (p) loadPatientData(p);
+          }
+        } catch (e) {
+          console.error('Error fetching patients:', e);
+        }
+      }
+      function renderPatientsTable(list) {
+        const tbody = document.getElementById('patients-table-body');
+        tbody.innerHTML = '';
+        if (list.length === 0) {
+          tbody.innerHTML =
+            '<tr><td colspan="6" class="p-6 text-center text-gray-400">No records found.</td></tr>';
+          return;
+        }
+        list.forEach((p) => {
+          const id = p._id || p.id;
+          const tr = document.createElement('tr');
+          tr.className = 'hover:bg-gray-50 border-b cursor-pointer transition';
+          tr.onclick = (e) => {
+            if (e.target.closest('.action-btn')) return;
+            showPatientDetail(id);
+          };
+          const monthlyFeeDisplay = formatCurrency(parseInt(p.monthlyFee.replace(/,/g, '') || 0));
+          const actionButton =
+            currentUser.role === 'Admin'
+              ? `<button class="action-btn text-red-400 hover:text-red-600 p-2" onclick="window.deletePatient('${id}')"><i class="fas fa-trash"></i></button>`
+              : '---';
+
+          tr.innerHTML = `<td class="px-6 py-4 font-medium">${
+            p.name
+          }</td><td class="px-6 py-4 text-gray-500">${
+            p.idNo || '-'
+          }</td><td class="px-6 py-4 text-gray-500">${
+            p.contactNo || '-'
+          }</td><td class="px-6 py-4 font-semibold text-green-700">${monthlyFeeDisplay}</td><td class="px-6 py-4 text-center"><span class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">Active</span></td><td class="px-6 py-4 text-right">${actionButton}</td>`;
+          tbody.appendChild(tr);
+        });
+      }
+      window.addNewPatient = async function () {
+        const n = prompt('Patient Name:');
+        if (n) {
+          const fee = prompt('Monthly Fee (e.g., 50000):') || '0';
+          const allowance = prompt('Monthly Canteen Allowance (e.g., 5000):') || '3000';
+          await fetch('/api/patients', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: n,
+              admissionDate: new Date().toISOString().split('T')[0],
+              monthlyFee: fee,
+              monthlyAllowance: allowance,
+            }),
+          });
+          fetchPatients();
+        }
+      };
+      window.deletePatient = async function (id) {
+        if (currentUser.role !== 'Admin') return;
+        if (confirm('Permanently delete this patient record?')) {
+          await fetch(`/api/patients/${id}`, { method: 'DELETE' });
+          fetchPatients();
+        }
+      };
+
+      // --- PATIENT DETAIL VIEW ---
+      window.showPatientDetail = function (id) {
+        currentPatientId = id;
+        const p = patientsData.find((x) => (x._id || x.id) === id);
+        if (!p) return;
+        loadPatientData(p);
+        fetchPatientRecords(id);
+        populatePrintTemplate(p);
+        navigateTo('patient-detail-view');
+
+        // Set default tab to Notes
+        document.getElementById('tab-notes').classList.remove('hidden');
+        document.getElementById('tab-med').classList.add('hidden');
+
+        // Set visibility based on role
+        const isAdminOrDoctor = currentUser.role === 'Admin' || currentUser.role === 'Doctor';
+        document
+          .getElementById('patient-details-form')
+          .querySelectorAll('input, select, textarea')
+          .forEach((el) => {
+            el.disabled = !isAdminOrDoctor;
+          });
+        document.getElementById('save-det-btn').classList.toggle('hidden', !isAdminOrDoctor);
+        document
+          .getElementById('add-medical-record-form')
+          .classList.toggle('hidden', !isAdminOrDoctor);
+        document
+          .getElementById('add-session-note-form')
+          .classList.toggle(
+            'hidden',
+            !(currentUser.role === 'Admin' || currentUser.role === 'Psychologist')
+          );
+      };
+
+      function loadPatientData(p) {
+        const setVal = (id, val) => {
+          const el = document.getElementById(id);
+          if (el) el.value = val || '';
         };
 
-        window.handleLogout = async function() {
-            await fetch('/api/auth/logout', { method: 'POST' });
-            currentUser = { isLoggedIn: false, role: 'Guest', username: '' };
-            patientsData = [];
-            window.navigateTo('login-view');
-        };
+        setVal('det-name', p.name);
+        setVal('det-father', p.fatherName);
+        setVal('det-admission', p.admissionDate);
+        setVal('det-id', p.idNo);
+        setVal('det-age', p.age);
+        setVal('det-cnic', p.cnic);
+        setVal('det-contact', p.contactNo);
+        setVal('det-marital', p.maritalStatus || 'Married');
+        setVal('det-guardian', p.guardianName);
+        setVal('det-relation', p.relation);
+        setVal('det-address', p.address);
+        setVal('det-complaint', p.complaint);
+        setVal('det-drug', p.drugProblem);
+        setVal('det-prev', p.prevAdmissions);
+        setVal('det-fee', p.monthlyFee);
+        setVal('det-allowance', p.monthlyAllowance);
 
-        // --- NAVIGATION & VIEW MANAGEMENT ---
-        window.navigateTo = function(viewId) {
-            document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
-            document.getElementById(viewId).classList.remove('hidden');
-            document.querySelectorAll('.nav-item').forEach(el => { el.classList.remove('bg-green-800', 'text-white'); el.classList.add('text-green-100'); });
-            
-            const navIdMap = { 'dashboard-view': 'nav-dash', 'patients-view': 'nav-patients', 'canteen-view': 'nav-canteen', 'user-management-view': 'nav-users' };
-            const navId = navIdMap[viewId];
-            const navEl = document.getElementById(navId);
-            if(navEl) { navEl.classList.remove('text-green-100'); navEl.classList.add('bg-green-800', 'text-white'); }
-
-            if(viewId === 'dashboard-view') updateDashboard();
-            if(viewId === 'canteen-view') renderCanteenBreakdown();
-            if(viewId === 'user-management-view') renderUserManagement();
-        };
-
-        // --- DASHBOARD ---
-        async function updateDashboard() {
-            try {
-                const res = await fetch('/api/dashboard');
-                if (!res.ok) throw new Error("Failed to fetch dashboard metrics");
-                const metrics = await res.json();
-
-                document.getElementById('dash-total').innerText = formatNumber(metrics.totalPatients);
-                document.getElementById('dash-today').innerText = formatNumber(metrics.admissionsThisMonth);
-                document.getElementById('dash-income').innerText = formatCurrency(metrics.totalIncomeThisMonth);
-                document.getElementById('dash-canteen-sales').innerText = formatCurrency(metrics.totalCanteenSalesThisMonth);
-
-                const ctx = document.getElementById('admissionChart');
-                if(ctx) {
-                    const labels = [], data = [];
-                    for(let i=4; i>=0; i--) {
-                        const d = new Date(); d.setDate(d.getDate() - i);
-                        const dateStr = d.toISOString().split('T')[0];
-                        labels.push(d.toLocaleDateString('en-US', {weekday: 'short'}));
-                        data.push(patientsData.filter(p => p.admissionDate === dateStr).length);
-                    }
-                    if (admissionChart) admissionChart.destroy();
-                    admissionChart = new Chart(ctx, {
-                        type: 'bar',
-                        data: { labels: labels, datasets: [{ label: 'Admissions', data: data, backgroundColor: '#16a34a', borderRadius: 6 }] },
-                        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
-                    });
-                }
-            } catch(e) { console.error("Dashboard Error:", e); }
-        }
-
-        // --- PATIENTS & DIRECTORY ---
-        async function fetchPatients() {
-            try {
-                const res = await fetch('/api/patients');
-                if(!res.ok) throw new Error("Failed to fetch patients");
-                patientsData = await res.json();
-                renderPatientsTable(patientsData);
-                if(currentPatientId) {
-                    const p = patientsData.find(x => (x._id || x.id) === currentPatientId);
-                    if(p) loadPatientData(p);
-                }
-            } catch(e) { console.error("Error fetching patients:", e); }
-        }
-        function renderPatientsTable(list) {
-            const tbody = document.getElementById('patients-table-body');
-            tbody.innerHTML = '';
-            if(list.length === 0) { tbody.innerHTML = '<tr><td colspan="6" class="p-6 text-center text-gray-400">No records found.</td></tr>'; return; }
-            list.forEach(p => {
-                const id = p._id || p.id;
-                const tr = document.createElement('tr');
-                tr.className = "hover:bg-gray-50 border-b cursor-pointer transition";
-                tr.onclick = (e) => { if(e.target.closest('.action-btn')) return; showPatientDetail(id); };
-                const monthlyFeeDisplay = formatCurrency(parseInt(p.monthlyFee.replace(/,/g, '') || 0));
-                const actionButton = currentUser.role === 'Admin' ? `<button class="action-btn text-red-400 hover:text-red-600 p-2" onclick="window.deletePatient('${id}')"><i class="fas fa-trash"></i></button>` : '---';
-
-                tr.innerHTML = `<td class="px-6 py-4 font-medium">${p.name}</td><td class="px-6 py-4 text-gray-500">${p.idNo||'-'}</td><td class="px-6 py-4 text-gray-500">${p.contactNo||'-'}</td><td class="px-6 py-4 font-semibold text-green-700">${monthlyFeeDisplay}</td><td class="px-6 py-4 text-center"><span class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">Active</span></td><td class="px-6 py-4 text-right">${actionButton}</td>`;
-                tbody.appendChild(tr);
+        // FIX: Ensure notes-list exists before trying to access it
+        const notesList = document.getElementById('notes-list');
+        if (notesList) {
+          notesList.innerHTML = '';
+          (p.notes || [])
+            .sort((a, b) => new Date(b.date) - new Date(a.date))
+            .forEach((note) => {
+              notesList.innerHTML += `<div class="flex gap-4 pb-4 border-b border-gray-100 mb-2"><div class="text-xs text-gray-500 w-24">${new Date(
+                note.date
+              ).toLocaleDateString()}</div><div class="text-sm text-gray-800">${
+                note.text
+              }</div></div>`;
             });
         }
-        window.addNewPatient = async function() {
-            const n = prompt("Patient Name:");
-            if(n) {
-                const fee = prompt("Monthly Fee (e.g., 50000):") || '0';
-                const allowance = prompt("Monthly Canteen Allowance (e.g., 5000):") || '3000';
-                await fetch('/api/patients', {
-                    method:'POST',
-                    headers:{'Content-Type':'application/json'},
-                    body:JSON.stringify({
-                        name: n,
-                        admissionDate: new Date().toISOString().split('T')[0],
-                        monthlyFee: fee,
-                        monthlyAllowance: allowance
-                    })
-                });
-                fetchPatients();
-            }
-        };
-        window.deletePatient = async function(id) {
-            if(currentUser.role !== 'Admin') return;
-            if(confirm("Permanently delete this patient record?")) { await fetch(`/api/patients/${id}`, {method:'DELETE'}); fetchPatients(); }
-        };
+      }
 
-        // --- PATIENT DETAIL VIEW ---
-        window.showPatientDetail = function(id) {
-            currentPatientId = id;
-            const p = patientsData.find(x => (x._id || x.id) === id);
-            if (!p) return;
-            loadPatientData(p);
-            fetchPatientRecords(id);
-            populatePrintTemplate(p);
-            navigateTo('patient-detail-view');
-            
-            // Set default tab to Notes
-            document.getElementById('tab-notes').classList.remove('hidden');
-            document.getElementById('tab-med').classList.add('hidden');
-            
-            // Set visibility based on role
-            const isAdminOrDoctor = currentUser.role === 'Admin' || currentUser.role === 'Doctor';
-            document.getElementById('patient-details-form').querySelectorAll('input, select, textarea').forEach(el => {
-                el.disabled = !isAdminOrDoctor;
+      window.savePatientDetails = async function (e) {
+        e.preventDefault();
+        const data = {};
+        const fields = [
+          'name',
+          'father',
+          'admission',
+          'id',
+          'age',
+          'cnic',
+          'contact',
+          'marital',
+          'guardian',
+          'relation',
+          'address',
+          'complaint',
+          'drug',
+          'prev',
+          'fee',
+          'allowance',
+        ];
+        fields.forEach((k) => {
+          const el = document.getElementById('det-' + k);
+          if (el) {
+            let key;
+            if (k === 'admission') key = 'admissionDate';
+            else if (k === 'id') key = 'idNo';
+            else if (k === 'father') key = 'fatherName';
+            else if (k === 'contact') key = 'contactNo';
+            else if (k === 'guardian') key = 'guardianName';
+            else if (k === 'drug') key = 'drugProblem';
+            else if (k === 'prev') key = 'prevAdmissions';
+            else if (k === 'marital') key = 'maritalStatus';
+            else if (k === 'fee') key = 'monthlyFee';
+            else if (k === 'allowance') key = 'monthlyAllowance';
+            else key = k;
+            data[key] = el.value;
+          }
+        });
+        await fetch(`/api/patients/${currentPatientId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        });
+        alert('Saved');
+        fetchPatients();
+      };
+
+      // --- PATIENT RECORDS (SESSION & MEDICAL) ---
+      async function fetchPatientRecords(id) {
+        try {
+          const res = await fetch(`/api/patients/${id}/records`);
+          const records = await res.json();
+
+          const sessionNotesList = document.getElementById('session-notes-list');
+          const medicalRecordsList = document.getElementById('medical-records-list');
+          sessionNotesList.innerHTML = '';
+          medicalRecordsList.innerHTML = '';
+
+          records.forEach((r) => {
+            const date = new Date(r.date).toLocaleDateString('en-US', {
+              day: 'numeric',
+              month: 'short',
+              year: 'numeric',
             });
-            document.getElementById('save-det-btn').classList.toggle('hidden', !isAdminOrDoctor);
-            document.getElementById('add-medical-record-form').classList.toggle('hidden', !isAdminOrDoctor);
-            document.getElementById('add-session-note-form').classList.toggle('hidden', !(currentUser.role === 'Admin' || currentUser.role === 'Psychologist'));
-        };
-
-        function loadPatientData(p) {
-            const setVal = (id, val) => { const el = document.getElementById(id); if(el) el.value = val || ''; };
-            
-            setVal('det-name', p.name); setVal('det-father', p.fatherName); setVal('det-admission', p.admissionDate);
-            setVal('det-id', p.idNo); setVal('det-age', p.age); setVal('det-cnic', p.cnic);
-            setVal('det-contact', p.contactNo); setVal('det-marital', p.maritalStatus || 'Married');
-            setVal('det-guardian', p.guardianName); setVal('det-relation', p.relation);
-            setVal('det-address', p.address); setVal('det-complaint', p.complaint);
-            setVal('det-drug', p.drugProblem); setVal('det-prev', p.prevAdmissions);
-            setVal('det-fee', p.monthlyFee); setVal('det-allowance', p.monthlyAllowance);
-
-            // FIX: Ensure notes-list exists before trying to access it
-            const notesList = document.getElementById('notes-list');
-            if (notesList) {
-                notesList.innerHTML = '';
-                (p.notes || []).sort((a,b) => new Date(b.date) - new Date(a.date)).forEach(note => {
-                    notesList.innerHTML += `<div class="flex gap-4 pb-4 border-b border-gray-100 mb-2"><div class="text-xs text-gray-500 w-24">${new Date(note.date).toLocaleDateString()}</div><div class="text-sm text-gray-800">${note.text}</div></div>`;
-                });
-            }
-        }
-
-        window.savePatientDetails = async function(e) {
-            e.preventDefault();
-            const data = {};
-            const fields = ['name','father','admission','id','age','cnic','contact','marital','guardian','relation','address','complaint','drug','prev','fee','allowance'];
-            fields.forEach(k => {
-                const el = document.getElementById('det-'+k);
-                if(el) {
-                    let key;
-                    if(k === 'admission') key = 'admissionDate'; else if(k === 'id') key = 'idNo'; else if(k === 'father') key = 'fatherName';
-                    else if(k === 'contact') key = 'contactNo'; else if(k === 'guardian') key = 'guardianName'; else if(k === 'drug') key = 'drugProblem';
-                    else if(k === 'prev') key = 'prevAdmissions'; else if(k === 'marital') key = 'maritalStatus'; else if(k === 'fee') key = 'monthlyFee';
-                    else if(k === 'allowance') key = 'monthlyAllowance'; else key = k;
-                    data[key] = el.value;
-                }
-            });
-            await fetch(`/api/patients/${currentPatientId}`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
-            alert("Saved"); fetchPatients();
-        };
-
-        // --- PATIENT RECORDS (SESSION & MEDICAL) ---
-        async function fetchPatientRecords(id) {
-            try {
-                const res = await fetch(`/api/patients/${id}/records`);
-                const records = await res.json();
-                
-                const sessionNotesList = document.getElementById('session-notes-list');
-                const medicalRecordsList = document.getElementById('medical-records-list');
-                sessionNotesList.innerHTML = '';
-                medicalRecordsList.innerHTML = '';
-
-                records.forEach(r => {
-                    const date = new Date(r.date).toLocaleDateString('en-US', {day: 'numeric', month: 'short', year: 'numeric'});
-                    const html = `<div class="p-3 border-b border-gray-100 bg-gray-50 mb-1 rounded">
-                        <div class="text-xs text-gray-500 flex justify-between"><span>${date} by ${r.recorded_by}</span> <span class="font-semibold text-green-700">${r.title || r.type}</span></div>
+            const html = `<div class="p-3 border-b border-gray-100 bg-gray-50 mb-1 rounded">
+                        <div class="text-xs text-gray-500 flex justify-between"><span>${date} by ${
+              r.recorded_by
+            }</span> <span class="font-semibold text-green-700">${r.title || r.type}</span></div>
                         <p class="text-sm mt-1">${r.text || r.details}</p>
                     </div>`;
-                    
-                    if (r.type === 'session_note') sessionNotesList.innerHTML += html;
-                    if (r.type === 'medical_record') medicalRecordsList.innerHTML += html;
-                });
-                
-                if (sessionNotesList.innerHTML === '') sessionNotesList.innerHTML = '<p class="text-center text-gray-400 mt-4">No session notes recorded.</p>';
-                if (medicalRecordsList.innerHTML === '') medicalRecordsList.innerHTML = '<p class="text-center text-gray-400 mt-4">No medical records or tests recorded.</p>';
-                
-            } catch(e) { console.error("Error fetching records:", e); }
+
+            if (r.type === 'session_note') sessionNotesList.innerHTML += html;
+            if (r.type === 'medical_record') medicalRecordsList.innerHTML += html;
+          });
+
+          if (sessionNotesList.innerHTML === '')
+            sessionNotesList.innerHTML =
+              '<p class="text-center text-gray-400 mt-4">No session notes recorded.</p>';
+          if (medicalRecordsList.innerHTML === '')
+            medicalRecordsList.innerHTML =
+              '<p class="text-center text-gray-400 mt-4">No medical records or tests recorded.</p>';
+        } catch (e) {
+          console.error('Error fetching records:', e);
         }
-        window.addSessionNote = async function(e) {
-            e.preventDefault();
-            const txt = document.getElementById('new-session-note-input').value;
-            if(!txt) return;
-            await fetch(`/api/patients/${currentPatientId}/session_note`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({text: txt, date: new Date().toISOString()})
-            });
-            document.getElementById('new-session-note-input').value = '';
-            fetchPatientRecords(currentPatientId);
-        };
-        window.addMedicalRecord = async function(e) {
-            e.preventDefault();
-            const title = document.getElementById('new-med-title').value;
-            const details = document.getElementById('new-med-details').value;
-            if(!title || !details) return;
-            await fetch(`/api/patients/${currentPatientId}/medical_record`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({title, details})
-            });
-            document.getElementById('new-med-title').value = '';
-            document.getElementById('new-med-details').value = '';
-            fetchPatientRecords(currentPatientId);
-        };
-        
-        // --- PRINT TEMPLATE POPULATION FUNCTION ---
-        function populatePrintTemplate(p) {
-            const setText = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val || '................'; };
-            setText('pr-name', p.name); setText('pr-father', p.fatherName); setText('pr-admission', p.admissionDate);
-            setText('pr-id', p.idNo); setText('pr-age', p.age); setText('pr-cnic', p.cnic);
-            setText('pr-guardian', p.guardianName); setText('pr-relation', p.relation); setText('pr-drug', p.drugProblem);
-            setText('pr-contact', p.contactNo); setText('pr-marital', p.maritalStatus); setText('pr-prev', p.prevAdmissions);
-            setText('pr-address', p.address); setText('pr-complaint', p.complaint);
-            setText('ur-name', p.name); setText('ur-father', p.fatherName); setText('ur-age', p.age);
-            setText('ur-cnic', p.cnic); setText('ur-contact', p.contactNo); setText('ur-address', p.address);
-            setText('ur-auth-name', p.guardianName);
+      }
+
+      window.showTab = function (tab) {
+        if (tab === 'notes') {
+          document.getElementById('tab-notes').classList.remove('hidden');
+          document.getElementById('tab-med').classList.add('hidden');
+          document
+            .getElementById('notes-tab-btn')
+            .classList.add('text-green-700', 'border-green-700');
+          document
+            .getElementById('notes-tab-btn')
+            .classList.remove('text-gray-500', 'border-transparent');
+          document
+            .getElementById('records-tab-btn')
+            .classList.remove('text-green-700', 'border-green-700');
+          document
+            .getElementById('records-tab-btn')
+            .classList.add('text-gray-500', 'border-transparent');
+        } else if (tab === 'records') {
+          document.getElementById('tab-notes').classList.add('hidden');
+          document.getElementById('tab-med').classList.remove('hidden');
+          document
+            .getElementById('records-tab-btn')
+            .classList.add('text-green-700', 'border-green-700');
+          document
+            .getElementById('records-tab-btn')
+            .classList.remove('text-gray-500', 'border-transparent');
+          document
+            .getElementById('notes-tab-btn')
+            .classList.remove('text-green-700', 'border-green-700');
+          document
+            .getElementById('notes-tab-btn')
+            .classList.add('text-gray-500', 'border-transparent');
         }
+      };
 
-        // --- CANTEEN VIEW ---
-        async function renderCanteenBreakdown() {
-            try {
-                const res = await fetch('/api/canteen/sales/breakdown');
-                if (!res.ok) throw new Error("Failed to fetch canteen breakdown");
-                const breakdown = await res.json();
-                
-                const tbody = document.getElementById('canteen-breakdown-body');
-                const patientSelect = document.getElementById('canteen-patient-select');
-                const salesPanel = document.getElementById('canteen-sales-panel');
-                const breakdownContainer = document.getElementById('canteen-breakdown-table-container');
+      window.addSessionNote = async function (e) {
+        e.preventDefault();
+        const txt = document.getElementById('new-session-note-input').value;
+        if (!txt) return;
+        await fetch(`/api/patients/${currentPatientId}/session_note`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: txt, date: new Date().toISOString() }),
+        });
+        document.getElementById('new-session-note-input').value = '';
+        fetchPatientRecords(currentPatientId);
+      };
+      window.addMedicalRecord = async function (e) {
+        e.preventDefault();
+        const title = document.getElementById('new-med-title').value;
+        const details = document.getElementById('new-med-details').value;
+        if (!title || !details) return;
+        await fetch(`/api/patients/${currentPatientId}/medical_record`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title, details }),
+        });
+        document.getElementById('new-med-title').value = '';
+        document.getElementById('new-med-details').value = '';
+        fetchPatientRecords(currentPatientId);
+      };
 
-                const canRecord = currentUser.role === 'Admin' || currentUser.role === 'Canteen';
-                salesPanel.style.display = canRecord ? 'block' : 'none';
-                
-                if (canRecord) {
-                    breakdownContainer.classList.remove('col-span-3');
-                    breakdownContainer.classList.add('col-span-2');
-                } else {
-                    breakdownContainer.classList.remove('col-span-2');
-                    breakdownContainer.classList.add('col-span-3');
-                }
+      // --- PRINT TEMPLATE POPULATION FUNCTION ---
+      function populatePrintTemplate(p) {
+        const setText = (id, val) => {
+          const el = document.getElementById(id);
+          if (el) el.textContent = val || '................';
+        };
+        setText('pr-name', p.name);
+        setText('pr-father', p.fatherName);
+        setText('pr-admission', p.admissionDate);
+        setText('pr-id', p.idNo);
+        setText('pr-age', p.age);
+        setText('pr-cnic', p.cnic);
+        setText('pr-guardian', p.guardianName);
+        setText('pr-relation', p.relation);
+        setText('pr-drug', p.drugProblem);
+        setText('pr-contact', p.contactNo);
+        setText('pr-marital', p.maritalStatus);
+        setText('pr-prev', p.prevAdmissions);
+        setText('pr-address', p.address);
+        setText('pr-complaint', p.complaint);
+        setText('ur-name', p.name);
+        setText('ur-father', p.fatherName);
+        setText('ur-age', p.age);
+        setText('ur-cnic', p.cnic);
+        setText('ur-contact', p.contactNo);
+        setText('ur-address', p.address);
+        setText('ur-auth-name', p.guardianName);
+      }
 
-                tbody.innerHTML = '';
-                patientSelect.innerHTML = '<option value="">-- Select Patient --</option>';
+      // --- CANTEEN VIEW ---
+      async function renderCanteenBreakdown() {
+        try {
+          const res = await fetch('/api/canteen/sales/breakdown');
+          if (!res.ok) throw new Error('Failed to fetch canteen breakdown');
+          const breakdown = await res.json();
 
-                breakdown.forEach(p => {
-                    const id = p.id;
-                    const sales = formatCurrency(p.monthlySales);
-                    const allowance = formatCurrency(parseInt(p.monthlyAllowance.replace(/,/g, '') || 0));
-                    const balance = formatCurrency(p.remainingBalance);
-                    const balanceClass = p.remainingBalance < 0 ? 'text-red-500 font-bold' : 'text-green-500';
+          const tbody = document.getElementById('canteen-breakdown-body');
+          const patientSelect = document.getElementById('canteen-patient-select');
+          const salesPanel = document.getElementById('canteen-sales-panel');
+          const breakdownContainer = document.getElementById('canteen-breakdown-table-container');
 
-                    tbody.innerHTML += `
+          const canRecord = currentUser.role === 'Admin' || currentUser.role === 'Canteen';
+          salesPanel.style.display = canRecord ? 'block' : 'none';
+
+          if (canRecord) {
+            breakdownContainer.classList.remove('col-span-3');
+            breakdownContainer.classList.add('col-span-2');
+          } else {
+            breakdownContainer.classList.remove('col-span-2');
+            breakdownContainer.classList.add('col-span-3');
+          }
+
+          tbody.innerHTML = '';
+          patientSelect.innerHTML = '<option value="">-- Select Patient --</option>';
+
+          breakdown.forEach((p) => {
+            const id = p.id;
+            const sales = formatCurrency(p.monthlySales);
+            const allowance = formatCurrency(parseInt(p.monthlyAllowance.replace(/,/g, '') || 0));
+            const balance = formatCurrency(p.remainingBalance);
+            const balanceClass =
+              p.remainingBalance < 0 ? 'text-red-500 font-bold' : 'text-green-500';
+
+            tbody.innerHTML += `
                         <tr class="hover:bg-gray-50 border-b">
                             <td class="px-6 py-4 font-medium">${p.name}</td>
                             <td class="px-6 py-4 text-gray-500">${allowance}</td>
@@ -387,49 +671,60 @@
                             <td class="px-6 py-4 ${balanceClass}">${balance}</td>
                         </tr>
                     `;
-                    patientSelect.innerHTML += `<option value="${id}">${p.name}</option>`;
-                });
-            } catch (e) { console.error("Canteen Render Error:", e); }
+            patientSelect.innerHTML += `<option value="${id}">${p.name}</option>`;
+          });
+        } catch (e) {
+          console.error('Canteen Render Error:', e);
         }
-        window.recordCanteenSale = async function(e) {
-            e.preventDefault();
-            const patientId = document.getElementById('canteen-patient-select').value;
-            const item = document.getElementById('canteen-item-input').value;
-            const amount = document.getElementById('canteen-amount-input').value;
-            
-            if (!patientId || !item || !amount) { alert("All fields are required."); return; }
-            
-            try {
-                const res = await fetch('/api/canteen/sales', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ patient_id: patientId, item, amount: parseInt(amount) })
-                });
-                if (res.ok) {
-                    alert("Sale recorded successfully!");
-                    document.getElementById('canteen-item-input').value = '';
-                    document.getElementById('canteen-amount-input').value = '';
-                    document.getElementById('canteen-patient-select').value = '';
-                    renderCanteenBreakdown();
-                    updateDashboard();
-                } else {
-                    const err = await res.json();
-                    alert(err.error || "Failed to record sale.");
-                }
-            } catch (e) { alert("Error recording sale."); console.error(e); }
-        };
+      }
+      window.recordCanteenSale = async function (e) {
+        e.preventDefault();
+        const patientId = document.getElementById('canteen-patient-select').value;
+        const item = document.getElementById('canteen-item-input').value;
+        const amount = document.getElementById('canteen-amount-input').value;
 
-        // --- USER MANAGEMENT (ADMIN) ---
-        async function renderUserManagement() {
-            if (currentUser.role !== 'Admin') return;
-            try {
-                const res = await fetch('/api/users');
-                const users = await res.json();
-                const tbody = document.getElementById('user-table-body');
-                tbody.innerHTML = '';
-                users.forEach(u => {
-                    const deleteButton = u.username !== 'ImranSaab' ? `<button class="text-red-400 hover:text-red-600 p-2 ml-4" onclick="deleteUser('${u._id}')"><i class="fas fa-trash"></i></button>` : '---';
-                    tbody.innerHTML += `
+        if (!patientId || !item || !amount) {
+          alert('All fields are required.');
+          return;
+        }
+
+        try {
+          const res = await fetch('/api/canteen/sales', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ patient_id: patientId, item, amount: parseInt(amount) }),
+          });
+          if (res.ok) {
+            alert('Sale recorded successfully!');
+            document.getElementById('canteen-item-input').value = '';
+            document.getElementById('canteen-amount-input').value = '';
+            document.getElementById('canteen-patient-select').value = '';
+            renderCanteenBreakdown();
+            updateDashboard();
+          } else {
+            const err = await res.json();
+            alert(err.error || 'Failed to record sale.');
+          }
+        } catch (e) {
+          alert('Error recording sale.');
+          console.error(e);
+        }
+      };
+
+      // --- USER MANAGEMENT (ADMIN) ---
+      async function renderUserManagement() {
+        if (currentUser.role !== 'Admin') return;
+        try {
+          const res = await fetch('/api/users');
+          const users = await res.json();
+          const tbody = document.getElementById('user-table-body');
+          tbody.innerHTML = '';
+          users.forEach((u) => {
+            const deleteButton =
+              u.username !== 'ImranSaab'
+                ? `<button class="text-red-400 hover:text-red-600 p-2 ml-4" onclick="deleteUser('${u._id}')"><i class="fas fa-trash"></i></button>`
+                : '---';
+            tbody.innerHTML += `
                         <tr class="hover:bg-gray-50 border-b">
                             <td class="px-6 py-4 font-medium">${u.name}</td>
                             <td class="px-6 py-4">${u.username}</td>
@@ -437,471 +732,1224 @@
                             <td class="px-6 py-4">${deleteButton}</td>
                         </tr>
                     `;
-                });
-            } catch(e) { console.error("User Management Error:", e); }
+          });
+        } catch (e) {
+          console.error('User Management Error:', e);
         }
-        window.createUser = async function(e) {
-            e.preventDefault();
-            const form = e.target;
-            const data = {
-                username: form.elements['new-username'].value,
-                password: form.elements['new-password'].value,
-                name: form.elements['new-name'].value,
-                role: form.elements['new-role'].value
-            };
-            try {
-                const res = await fetch('/api/users', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
-                if (res.ok) { alert("User created successfully."); renderUserManagement(); form.reset(); }
-                else { const err = await res.json(); alert(err.error || "Failed to create user."); }
-            } catch (e) { alert("Error creating user."); }
+      }
+      window.createUser = async function (e) {
+        e.preventDefault();
+        const form = e.target;
+        const data = {
+          username: form.elements['new-username'].value,
+          password: form.elements['new-password'].value,
+          name: form.elements['new-name'].value,
+          role: form.elements['new-role'].value,
         };
-        window.deleteUser = async function(id) {
-            if(confirm("Permanently delete this user?")) {
-                await fetch(`/api/users/${id}`, {method:'DELETE'});
-                renderUserManagement();
-            }
-        };
-        window.changePassword = async function(e) {
-            e.preventDefault();
-            const form = e.target;
-            const oldPass = form.elements['old-password'].value;
-            const newPass = form.elements['new-password-user'].value;
-            if(newPass.length < 6) { alert("Password must be at least 6 characters."); return; }
-            try {
-                const res = await fetch('/api/users/change_password', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({old_password: oldPass, new_password: newPass})
-                });
-                if (res.ok) { alert("Password changed successfully."); form.reset(); }
-                else { const err = await res.json(); alert(err.error || "Failed to change password."); }
-            } catch (e) { alert("Error changing password."); }
-        };
+        try {
+          const res = await fetch('/api/users', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+          });
+          if (res.ok) {
+            alert('User created successfully.');
+            renderUserManagement();
+            form.reset();
+          } else {
+            const err = await res.json();
+            alert(err.error || 'Failed to create user.');
+          }
+        } catch (e) {
+          alert('Error creating user.');
+        }
+      };
+      window.deleteUser = async function (id) {
+        if (confirm('Permanently delete this user?')) {
+          await fetch(`/api/users/${id}`, { method: 'DELETE' });
+          renderUserManagement();
+        }
+      };
+      window.changePassword = async function (e) {
+        e.preventDefault();
+        const form = e.target;
+        const oldPass = form.elements['old-password'].value;
+        const newPass = form.elements['new-password-user'].value;
+        if (newPass.length < 6) {
+          alert('Password must be at least 6 characters.');
+          return;
+        }
+        try {
+          const res = await fetch('/api/users/change_password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ old_password: oldPass, new_password: newPass }),
+          });
+          if (res.ok) {
+            alert('Password changed successfully.');
+            form.reset();
+          } else {
+            const err = await res.json();
+            alert(err.error || 'Failed to change password.');
+          }
+        } catch (e) {
+          alert('Error changing password.');
+        }
+      };
 
-        window.onload = initApp;
+      window.onload = initApp;
     </script>
-</head>
-<body class="bg-gray-50 h-screen flex overflow-hidden font-sans text-gray-800">
+  </head>
+  <body class="bg-gray-50 h-screen flex overflow-hidden font-sans text-gray-800">
     <!-- Login View (Default) -->
     <section id="login-view" class="view-section w-full h-full flex items-center justify-center">
-        <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-sm">
-            <h1 class="text-3xl font-bold text-center text-green-900 mb-2"><i class="fas fa-brain"></i> PRO System</h1>
-            <p class="text-center text-gray-600 mb-6">HMS Login</p>
-            <form onsubmit="handleLogin(event)">
-                <div class="mb-4">
-                    <label for="login-username" class="block text-sm font-medium text-gray-700">Username</label>
-                    <input type="text" id="login-username" class="mt-1 w-full p-3 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500" required>
-                </div>
-                <div class="mb-6">
-                    <label for="login-password" class="block text-sm font-medium text-gray-700">Password</label>
-                    <input type="password" id="login-password" class="mt-1 w-full p-3 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500" required>
-                </div>
-                <button type="submit" class="w-full bg-green-600 text-white p-3 rounded-lg font-semibold hover:bg-green-700 transition duration-150">Log In</button>
-            </form>
-            <p class="text-xs text-center text-gray-400 mt-4">Default Admin: ImranSaab / password123</p>
-        </div>
+      <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-sm">
+        <h1 class="text-3xl font-bold text-center text-green-900 mb-2">
+          <i class="fas fa-brain"></i> PRO System
+        </h1>
+        <p class="text-center text-gray-600 mb-6">HMS Login</p>
+        <form onsubmit="handleLogin(event)">
+          <div class="mb-4">
+            <label for="login-username" class="block text-sm font-medium text-gray-700"
+              >Username</label
+            >
+            <input
+              type="text"
+              id="login-username"
+              class="mt-1 w-full p-3 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500"
+              required
+            />
+          </div>
+          <div class="mb-6">
+            <label for="login-password" class="block text-sm font-medium text-gray-700"
+              >Password</label
+            >
+            <input
+              type="password"
+              id="login-password"
+              class="mt-1 w-full p-3 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500"
+              required
+            />
+          </div>
+          <button
+            type="submit"
+            class="w-full bg-green-600 text-white p-3 rounded-lg font-semibold hover:bg-green-700 transition duration-150"
+          >
+            Log In
+          </button>
+        </form>
+        <p class="text-xs text-center text-gray-400 mt-4">Default Admin: ImranSaab / password123</p>
+      </div>
     </section>
 
     <!-- Main App Layout (Hidden until logged in) -->
     <aside class="w-64 bg-green-900 text-white flex-none flex flex-col no-print shadow-xl z-20">
-        <div class="p-6 border-b border-green-800">
-            <h1 class="text-2xl font-bold flex items-center gap-2"><i class="fas fa-brain text-green-400"></i> PRO System</h1>
-            <p class="text-xs text-green-300 mt-1 pl-8">Pakistan Recovery Oasis</p>
-        </div>
-        <div class="p-4 text-xs bg-green-800 border-b border-green-700">
-            <p class="font-semibold" id="logged-in-user">Loading...</p>
-        </div>
-        <nav class="flex-1 p-4 space-y-2">
-            <button id="nav-dash" onclick="window.navigateTo('dashboard-view')" class="nav-item w-full text-left px-4 py-3 rounded-lg bg-green-800 text-white hover:bg-green-700">Dashboard</button>
-            <button id="nav-patients" onclick="window.navigateTo('patients-view')" class="nav-item w-full text-left px-4 py-3 rounded-lg text-green-100 hover:bg-green-800">Patients Directory</button>
-            <button id="nav-canteen" onclick="window.navigateTo('canteen-view')" class="nav-item w-full text-left px-4 py-3 rounded-lg text-green-100 hover:bg-green-800" style="display: none;">Canteen Management</button>
-            <button id="nav-users" onclick="window.navigateTo('user-management-view')" class="nav-item w-full text-left px-4 py-3 rounded-lg text-green-100 hover:bg-green-800" style="display: none;">User Management</button>
-        </nav>
-        <div class="p-4 border-t border-green-800">
-            <button onclick="changePasswordModal()" class="w-full text-left px-4 py-2 text-sm text-green-200 hover:text-white"><i class="fas fa-key mr-2"></i> Change Password</button>
-            <button onclick="handleLogout()" class="w-full text-left px-4 py-2 text-sm text-green-200 hover:text-white"><i class="fas fa-sign-out-alt mr-2"></i> Logout</button>
-        </div>
+      <div class="p-6 border-b border-green-800">
+        <h1 class="text-2xl font-bold flex items-center gap-2">
+          <i class="fas fa-brain text-green-400"></i> PRO System
+        </h1>
+        <p class="text-xs text-green-300 mt-1 pl-8">Pakistan Recovery Oasis</p>
+      </div>
+      <div class="p-4 text-xs bg-green-800 border-b border-green-700">
+        <p class="font-semibold" id="logged-in-user">Loading...</p>
+      </div>
+      <nav class="flex-1 p-4 space-y-2">
+        <button
+          id="nav-dash"
+          onclick="window.navigateTo('dashboard-view')"
+          class="nav-item w-full text-left px-4 py-3 rounded-lg bg-green-800 text-white hover:bg-green-700"
+        >
+          Dashboard
+        </button>
+        <button
+          id="nav-patients"
+          onclick="window.navigateTo('patients-view')"
+          class="nav-item w-full text-left px-4 py-3 rounded-lg text-green-100 hover:bg-green-800"
+        >
+          Patients Directory
+        </button>
+        <button
+          id="nav-canteen"
+          onclick="window.navigateTo('canteen-view')"
+          class="nav-item w-full text-left px-4 py-3 rounded-lg text-green-100 hover:bg-green-800"
+          style="display: none"
+        >
+          Canteen Management
+        </button>
+        <button
+          id="nav-users"
+          onclick="window.navigateTo('user-management-view')"
+          class="nav-item w-full text-left px-4 py-3 rounded-lg text-green-100 hover:bg-green-800"
+          style="display: none"
+        >
+          User Management
+        </button>
+      </nav>
+      <div class="p-4 border-t border-green-800">
+        <button
+          onclick="changePasswordModal()"
+          class="w-full text-left px-4 py-2 text-sm text-green-200 hover:text-white"
+        >
+          <i class="fas fa-key mr-2"></i> Change Password
+        </button>
+        <button
+          onclick="handleLogout()"
+          class="w-full text-left px-4 py-2 text-sm text-green-200 hover:text-white"
+        >
+          <i class="fas fa-sign-out-alt mr-2"></i> Logout
+        </button>
+      </div>
     </aside>
     <main class="flex-1 overflow-auto relative">
-        <!-- Dashboard -->
-        <section id="dashboard-view" class="view-section hidden p-8">
-            <h2 class="text-2xl font-bold mb-6">System Overview</h2>
-            <div class="grid grid-cols-4 gap-6 mb-8">
-                <div class="bg-white p-6 rounded-lg shadow-md border-l-4 border-green-600">
-                    <h3 class="text-sm font-medium text-gray-500">Total Patients</h3>
-                    <p class="text-3xl font-bold text-gray-900" id="dash-total">0</p>
-                </div>
-                <div class="bg-white p-6 rounded-lg shadow-md border-l-4 border-blue-600">
-                    <h3 class="text-sm font-medium text-gray-500">Admissions (This Month)</h3>
-                    <p class="text-3xl font-bold text-gray-900" id="dash-today">0</p>
-                </div>
-                <div class="bg-white p-6 rounded-lg shadow-md border-l-4 border-purple-600">
-                    <h3 class="text-sm font-medium text-gray-500">Monthly Income (Fees)</h3>
-                    <p class="text-3xl font-bold text-gray-900" id="dash-income">PKR 0</p>
-                </div>
-                <div class="bg-white p-6 rounded-lg shadow-md border-l-4 border-orange-600">
-                    <h3 class="text-sm font-medium text-gray-500">Canteen Sales (This Month)</h3>
-                    <p class="text-3xl font-bold text-gray-900" id="dash-canteen-sales">PKR 0</p>
-                </div>
-            </div>
-            <div class="bg-white p-6 rounded shadow h-[600px]">
-                <h3 class="font-bold text-lg mb-4">Last 5 Day Admissions</h3>
-                <canvas id="admissionChart"></canvas>
-            </div>
-        </section>
+      <!-- Dashboard -->
+      <section id="dashboard-view" class="view-section hidden p-8">
+        <h2 class="text-2xl font-bold mb-6">System Overview</h2>
+        <div class="grid grid-cols-4 gap-6 mb-8">
+          <div class="bg-white p-6 rounded-lg shadow-md border-l-4 border-green-600">
+            <h3 class="text-sm font-medium text-gray-500">Total Patients</h3>
+            <p class="text-3xl font-bold text-gray-900" id="dash-total">0</p>
+          </div>
+          <div class="bg-white p-6 rounded-lg shadow-md border-l-4 border-blue-600">
+            <h3 class="text-sm font-medium text-gray-500">Admissions (This Month)</h3>
+            <p class="text-3xl font-bold text-gray-900" id="dash-today">0</p>
+          </div>
+          <div class="bg-white p-6 rounded-lg shadow-md border-l-4 border-purple-600">
+            <h3 class="text-sm font-medium text-gray-500">Monthly Income (Fees)</h3>
+            <p class="text-3xl font-bold text-gray-900" id="dash-income">PKR 0</p>
+          </div>
+          <div class="bg-white p-6 rounded-lg shadow-md border-l-4 border-orange-600">
+            <h3 class="text-sm font-medium text-gray-500">Canteen Sales (This Month)</h3>
+            <p class="text-3xl font-bold text-gray-900" id="dash-canteen-sales">PKR 0</p>
+          </div>
+        </div>
+        <div class="bg-white p-6 rounded shadow h-[600px]">
+          <h3 class="font-bold text-lg mb-4">Last 5 Day Admissions</h3>
+          <canvas id="admissionChart"></canvas>
+        </div>
+      </section>
 
-        <!-- Directory -->
-        <section id="patients-view" class="view-section hidden p-8">
-            <div class="flex justify-between mb-6">
-                <h2 class="text-2xl font-bold">Patients Directory</h2>
-                <div id="add-new-patient-btn" class="flex gap-2" style="display: none;">
-                    <button onclick="openExportModal()" class="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition"><i class="fas fa-file-excel mr-2"></i>Export Excel</button>
-                    <button onclick="addNewPatient()" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition"><i class="fas fa-plus mr-2"></i>New Admission</button>
+      <!-- Directory -->
+      <section id="patients-view" class="view-section hidden p-8">
+        <div class="flex justify-between mb-6">
+          <h2 class="text-2xl font-bold">Patients Directory</h2>
+          <div id="add-new-patient-btn" class="flex gap-2" style="display: none">
+            <button
+              onclick="openExportModal()"
+              class="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition"
+            >
+              <i class="fas fa-file-excel mr-2"></i>Export Excel
+            </button>
+            <button
+              onclick="addNewPatient()"
+              class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition"
+            >
+              <i class="fas fa-plus mr-2"></i>New Admission
+            </button>
+          </div>
+          <div id="non-admin-actions" class="flex gap-2">
+            <button
+              onclick="openExportModal()"
+              class="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition"
+            >
+              <i class="fas fa-file-excel mr-2"></i>Export Excel
+            </button>
+          </div>
+        </div>
+        <div class="bg-white rounded-lg shadow-md overflow-x-auto">
+          <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+              <tr>
+                <th
+                  class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                >
+                  Name
+                </th>
+                <th
+                  class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                >
+                  ID No
+                </th>
+                <th
+                  class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                >
+                  Contact
+                </th>
+                <th
+                  class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                >
+                  Monthly Fee
+                </th>
+                <th
+                  class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
+                >
+                  Status
+                </th>
+                <th
+                  class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
+                >
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody id="patients-table-body" class="bg-white divide-y divide-gray-200"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Detail View -->
+      <section id="patient-detail-view" class="view-section hidden p-8">
+        <div class="flex justify-between mb-4 no-print">
+          <button
+            onclick="navigateTo('patients-view')"
+            class="text-green-600 hover:text-green-800 font-semibold"
+          >
+            <i class="fas fa-arrow-left mr-2"></i>Back to Directory
+          </button>
+          <div class="flex gap-2">
+            <button
+              onclick="window.print()"
+              class="bg-white border px-4 py-2 rounded-lg hover:bg-gray-100 transition"
+            >
+              <i class="fas fa-print mr-2"></i>Print Profile
+            </button>
+            <button
+              id="save-det-btn"
+              onclick="document.getElementById('save-det-btn-submit').click()"
+              class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition"
+            >
+              <i class="fas fa-save mr-2"></i>Update Record
+            </button>
+          </div>
+        </div>
+        <div class="grid grid-cols-3 gap-8">
+          <!-- Col 1: Patient Details -->
+          <div class="col-span-2 bg-white p-6 rounded-lg shadow-md">
+            <h3 class="text-xl font-bold border-b pb-2 mb-4">
+              Patient Details (Medical & Administrative)
+            </h3>
+            <form id="patient-details-form" onsubmit="savePatientDetails(event)">
+              <input type="submit" id="save-det-btn-submit" class="hidden" />
+              <div class="grid grid-cols-3 gap-4">
+                <input id="det-name" class="border p-2 rounded" placeholder="Name" />
+                <input id="det-father" class="border p-2 rounded" placeholder="Father Name" />
+                <input id="det-admission" type="date" class="border p-2 rounded" />
+
+                <input id="det-id" class="border p-2 rounded" placeholder="ID" />
+                <input id="det-age" class="border p-2 rounded" placeholder="Age" />
+                <input id="det-cnic" class="border p-2 rounded" placeholder="CNIC" />
+
+                <input id="det-contact" class="border p-2 rounded" placeholder="Contact" />
+                <select id="det-marital" class="border p-2 rounded bg-white">
+                  <option>Married</option>
+                  <option>Unmarried</option>
+                  <option>Divorced</option>
+                </select>
+                <input id="det-drug" class="border p-2 rounded" placeholder="Drug Problem" />
+
+                <input id="det-guardian" class="border p-2 rounded" placeholder="Guardian" />
+                <input id="det-relation" class="border p-2 rounded" placeholder="Relation" />
+                <input id="det-prev" class="border p-2 rounded" placeholder="Prev Admissions" />
+
+                <input
+                  id="det-fee"
+                  class="border p-2 rounded"
+                  placeholder="Monthly Fee"
+                  title="Monthly Fee"
+                />
+                <input
+                  id="det-allowance"
+                  class="border p-2 rounded"
+                  placeholder="Canteen Allowance"
+                  title="Canteen Allowance"
+                />
+                <div class="col-span-3">
+                  <input id="det-address" class="border p-2 w-full rounded" placeholder="Address" />
                 </div>
-                <div id="non-admin-actions" class="flex gap-2">
-                    <button onclick="openExportModal()" class="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition"><i class="fas fa-file-excel mr-2"></i>Export Excel</button>
+                <div class="col-span-3">
+                  <textarea
+                    id="det-complaint"
+                    class="border p-2 w-full rounded"
+                    placeholder="Presenting Complaint"
+                  ></textarea>
                 </div>
+              </div>
+            </form>
+          </div>
+          <!-- Col 2: Clinical & Medical Records -->
+          <div class="bg-white p-6 rounded-lg shadow-md h-full flex flex-col">
+            <div class="tabs flex border-b mb-4">
+              <button
+                onclick="showTab('notes')"
+                id="notes-tab-btn"
+                class="tab-button flex-1 text-center py-2 text-green-700 font-semibold border-b-2 border-green-700"
+              >
+                Notes
+              </button>
+              <button
+                onclick="showTab('records')"
+                id="records-tab-btn"
+                class="tab-button flex-1 text-center py-2 text-gray-500 border-b-2 border-transparent"
+              >
+                Records
+              </button>
             </div>
-            <div class="bg-white rounded-lg shadow-md overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID No</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Monthly Fee</th>
-                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="patients-table-body" class="bg-white divide-y divide-gray-200"></tbody>
-                </table>
+
+            <!-- TAB: Notes -->
+            <div id="tab-notes" class="flex-1 overflow-y-auto flex flex-col">
+              <h4 class="font-bold mb-2 text-green-800">Psychologist Session Notes</h4>
+              <!-- NEW CONTAINER FOR SESSION NOTES -->
+              <div
+                id="session-notes-list"
+                class="flex-1 overflow-y-auto mb-4 border p-3 rounded"
+              ></div>
+
+              <!-- FIXED: ADDED CONTAINER FOR LEGACY NOTES TO PREVENT JS ERROR -->
+              <div class="mb-4">
+                <h5 class="text-sm font-bold text-gray-500 mb-1">General Notes</h5>
+                <div id="notes-list" class="text-sm text-gray-600 bg-gray-50 p-2 rounded"></div>
+              </div>
+
+              <form id="add-session-note-form" onsubmit="addSessionNote(event)">
+                <textarea
+                  id="new-session-note-input"
+                  class="border w-full p-2 mb-2 rounded"
+                  rows="3"
+                  placeholder="Add daily session note..."
+                ></textarea>
+                <button
+                  type="submit"
+                  class="bg-green-600 text-white w-full py-2 rounded hover:bg-green-700"
+                >
+                  Add Session Note
+                </button>
+              </form>
             </div>
-        </section>
 
-        <!-- Detail View -->
-        <section id="patient-detail-view" class="view-section hidden p-8">
-            <div class="flex justify-between mb-4 no-print">
-                <button onclick="navigateTo('patients-view')" class="text-green-600 hover:text-green-800 font-semibold"><i class="fas fa-arrow-left mr-2"></i>Back to Directory</button>
-                <div class="flex gap-2">
-                    <button onclick="window.print()" class="bg-white border px-4 py-2 rounded-lg hover:bg-gray-100 transition"><i class="fas fa-print mr-2"></i>Print Profile</button>
-                    <button id="save-det-btn" onclick="document.getElementById('save-det-btn-submit').click()" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition"><i class="fas fa-save mr-2"></i>Update Record</button>
-                </div>
+            <!-- TAB: Medical Records -->
+            <div id="tab-med" class="hidden flex-1 overflow-y-auto flex flex-col">
+              <h4 class="font-bold mb-2 text-green-800">Tests, Reports & History</h4>
+              <div
+                id="medical-records-list"
+                class="flex-1 overflow-y-auto mb-4 border p-3 rounded"
+              ></div>
+              <form id="add-medical-record-form" onsubmit="addMedicalRecord(event)">
+                <input
+                  id="new-med-title"
+                  class="border w-full p-2 mb-2 rounded"
+                  placeholder="Title (e.g., Blood Test, ECG)"
+                />
+                <textarea
+                  id="new-med-details"
+                  class="border w-full p-2 mb-2 rounded"
+                  rows="3"
+                  placeholder="Detailed findings..."
+                ></textarea>
+                <button
+                  type="submit"
+                  class="bg-green-600 text-white w-full py-2 rounded hover:bg-green-700"
+                >
+                  Add Medical Record
+                </button>
+              </form>
             </div>
-            <div class="grid grid-cols-3 gap-8">
-                <!-- Col 1: Patient Details -->
-                <div class="col-span-2 bg-white p-6 rounded-lg shadow-md">
-                    <h3 class="text-xl font-bold border-b pb-2 mb-4">Patient Details (Medical & Administrative)</h3>
-                    <form id="patient-details-form" onsubmit="savePatientDetails(event)">
-                        <input type="submit" id="save-det-btn-submit" class="hidden">
-                        <div class="grid grid-cols-3 gap-4">
-                            <input id="det-name" class="border p-2 rounded" placeholder="Name">
-                            <input id="det-father" class="border p-2 rounded" placeholder="Father Name">
-                            <input id="det-admission" type="date" class="border p-2 rounded">
-                            
-                            <input id="det-id" class="border p-2 rounded" placeholder="ID">
-                            <input id="det-age" class="border p-2 rounded" placeholder="Age">
-                            <input id="det-cnic" class="border p-2 rounded" placeholder="CNIC">
-                            
-                            <input id="det-contact" class="border p-2 rounded" placeholder="Contact">
-                            <select id="det-marital" class="border p-2 rounded bg-white"><option>Married</option><option>Unmarried</option><option>Divorced</option></select>
-                            <input id="det-drug" class="border p-2 rounded" placeholder="Drug Problem">
-                            
-                            <input id="det-guardian" class="border p-2 rounded" placeholder="Guardian">
-                            <input id="det-relation" class="border p-2 rounded" placeholder="Relation">
-                            <input id="det-prev" class="border p-2 rounded" placeholder="Prev Admissions">
+          </div>
+        </div>
+      </section>
 
-                            <input id="det-fee" class="border p-2 rounded" placeholder="Monthly Fee" title="Monthly Fee">
-                            <input id="det-allowance" class="border p-2 rounded" placeholder="Canteen Allowance" title="Canteen Allowance">
-                            <div class="col-span-3"><input id="det-address" class="border p-2 w-full rounded" placeholder="Address"></div>
-                            <div class="col-span-3"><textarea id="det-complaint" class="border p-2 w-full rounded" placeholder="Presenting Complaint"></textarea></div>
-                        </div>
-                    </form>
-                </div>
-                <!-- Col 2: Clinical & Medical Records -->
-                <div class="bg-white p-6 rounded-lg shadow-md h-full flex flex-col">
-                    <div class="tabs flex border-b mb-4">
-                        <button onclick="document.getElementById('tab-notes').classList.remove('hidden'); document.getElementById('tab-med').classList.add('hidden');" class="tab-button flex-1 text-center py-2 text-green-700 font-semibold border-b-2 border-green-700">Notes</button>
-                        <button onclick="document.getElementById('tab-notes').classList.add('hidden'); document.getElementById('tab-med').classList.remove('hidden');" class="tab-button flex-1 text-center py-2 text-gray-500">Records</button>
-                    </div>
+      <!-- Canteen Management View -->
+      <section id="canteen-view" class="view-section hidden p-8">
+        <h2 class="text-2xl font-bold mb-6">Canteen Sales Management</h2>
+        <div class="grid grid-cols-3 gap-8">
+          <!-- Sales Recording Panel -->
+          <div
+            id="canteen-sales-panel"
+            class="col-span-1 bg-white p-6 rounded-lg shadow-md h-min"
+            style="display: none"
+          >
+            <h3 class="text-xl font-bold border-b pb-2 mb-4 text-orange-600">Record New Sale</h3>
+            <form onsubmit="recordCanteenSale(event)">
+              <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700">Patient</label>
+                <select
+                  id="canteen-patient-select"
+                  class="w-full p-3 border rounded-lg bg-white"
+                  required
+                ></select>
+              </div>
+              <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700">Item Description</label>
+                <input
+                  type="text"
+                  id="canteen-item-input"
+                  class="w-full p-3 border rounded-lg"
+                  required
+                />
+              </div>
+              <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700">Amount (PKR)</label>
+                <input
+                  type="number"
+                  id="canteen-amount-input"
+                  class="w-full p-3 border rounded-lg"
+                  required
+                  min="1"
+                />
+              </div>
+              <button
+                type="submit"
+                class="w-full bg-orange-600 text-white p-3 rounded-lg font-semibold hover:bg-orange-700 transition"
+              >
+                Record Sale
+              </button>
+            </form>
+          </div>
+          <!-- Canteen Breakdown Table -->
+          <div
+            id="canteen-breakdown-table-container"
+            class="col-span-3 bg-white rounded-lg shadow-md overflow-x-auto"
+          >
+            <h3 class="text-xl font-bold border-b p-4 text-orange-600">
+              Monthly Patient Breakdown
+            </h3>
+            <table class="min-w-full divide-y divide-gray-200">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th
+                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
+                    Patient Name
+                  </th>
+                  <th
+                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
+                    Allowance
+                  </th>
+                  <th
+                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
+                    Sales (This Month)
+                  </th>
+                  <th
+                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
+                    Remaining Balance
+                  </th>
+                </tr>
+              </thead>
+              <tbody id="canteen-breakdown-body" class="bg-white divide-y divide-gray-200"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
 
-                    <!-- TAB: Notes -->
-                    <div id="tab-notes" class="flex-1 overflow-y-auto flex flex-col">
-                        <h4 class="font-bold mb-2 text-green-800">Psychologist Session Notes</h4>
-                        <!-- NEW CONTAINER FOR SESSION NOTES -->
-                        <div id="session-notes-list" class="flex-1 overflow-y-auto mb-4 border p-3 rounded"></div>
-                        
-                        <!-- FIXED: ADDED CONTAINER FOR LEGACY NOTES TO PREVENT JS ERROR -->
-                        <div class="mb-4">
-                            <h5 class="text-sm font-bold text-gray-500 mb-1">General Notes</h5>
-                            <div id="notes-list" class="text-sm text-gray-600 bg-gray-50 p-2 rounded"></div>
-                        </div>
-
-                        <form id="add-session-note-form" onsubmit="addSessionNote(event)">
-                            <textarea id="new-session-note-input" class="border w-full p-2 mb-2 rounded" rows="3" placeholder="Add daily session note..."></textarea>
-                            <button type="submit" class="bg-green-600 text-white w-full py-2 rounded hover:bg-green-700">Add Session Note</button>
-                        </form>
-                    </div>
-
-                    <!-- TAB: Medical Records -->
-                    <div id="tab-med" class="hidden flex-1 overflow-y-auto flex flex-col">
-                        <h4 class="font-bold mb-2 text-green-800">Tests, Reports & History</h4>
-                        <div id="medical-records-list" class="flex-1 overflow-y-auto mb-4 border p-3 rounded"></div>
-                        <form id="add-medical-record-form" onsubmit="addMedicalRecord(event)">
-                            <input id="new-med-title" class="border w-full p-2 mb-2 rounded" placeholder="Title (e.g., Blood Test, ECG)">
-                            <textarea id="new-med-details" class="border w-full p-2 mb-2 rounded" rows="3" placeholder="Detailed findings..."></textarea>
-                            <button type="submit" class="bg-green-600 text-white w-full py-2 rounded hover:bg-green-700">Add Medical Record</button>
-                        </form>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- Canteen Management View -->
-        <section id="canteen-view" class="view-section hidden p-8">
-            <h2 class="text-2xl font-bold mb-6">Canteen Sales Management</h2>
-            <div class="grid grid-cols-3 gap-8">
-                <!-- Sales Recording Panel -->
-                <div id="canteen-sales-panel" class="col-span-1 bg-white p-6 rounded-lg shadow-md h-min" style="display: none;">
-                    <h3 class="text-xl font-bold border-b pb-2 mb-4 text-orange-600">Record New Sale</h3>
-                    <form onsubmit="recordCanteenSale(event)">
-                        <div class="mb-4">
-                            <label class="block text-sm font-medium text-gray-700">Patient</label>
-                            <select id="canteen-patient-select" class="w-full p-3 border rounded-lg bg-white" required></select>
-                        </div>
-                        <div class="mb-4">
-                            <label class="block text-sm font-medium text-gray-700">Item Description</label>
-                            <input type="text" id="canteen-item-input" class="w-full p-3 border rounded-lg" required>
-                        </div>
-                        <div class="mb-4">
-                            <label class="block text-sm font-medium text-gray-700">Amount (PKR)</label>
-                            <input type="number" id="canteen-amount-input" class="w-full p-3 border rounded-lg" required min="1">
-                        </div>
-                        <button type="submit" class="w-full bg-orange-600 text-white p-3 rounded-lg font-semibold hover:bg-orange-700 transition">Record Sale</button>
-                    </form>
-                </div>
-                <!-- Canteen Breakdown Table -->
-                <div id="canteen-breakdown-table-container" class="col-span-3 bg-white rounded-lg shadow-md overflow-x-auto">
-                    <h3 class="text-xl font-bold border-b p-4 text-orange-600">Monthly Patient Breakdown</h3>
-                    <table class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Patient Name</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Allowance</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sales (This Month)</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Remaining Balance</th>
-                            </tr>
-                        </thead>
-                        <tbody id="canteen-breakdown-body" class="bg-white divide-y divide-gray-200"></tbody>
-                    </table>
-                </div>
-            </div>
-        </section>
-
-        <!-- User Management View (Admin Only) -->
-        <section id="user-management-view" class="view-section hidden p-8">
-            <h2 class="text-2xl font-bold mb-6">User & Access Control</h2>
-            <div class="grid grid-cols-3 gap-8">
-                <!-- User Creation Panel -->
-                <div class="col-span-1 bg-white p-6 rounded-lg shadow-md h-min">
-                    <h3 class="text-xl font-bold border-b pb-2 mb-4 text-blue-600">Create New User</h3>
-                    <form onsubmit="createUser(event)">
-                        <input name="new-name" class="w-full p-3 border rounded-lg mb-3" placeholder="Full Name" required>
-                        <input name="new-username" class="w-full p-3 border rounded-lg mb-3" placeholder="Username (Unique ID)" required>
-                        <input type="password" name="new-password" class="w-full p-3 border rounded-lg mb-3" placeholder="Password" required>
-                        <select name="new-role" class="w-full p-3 border rounded-lg bg-white mb-4" required>
-                            <option value="Admin">Admin (Imran Saab)</option>
-                            <option value="Doctor">Doctor</option>
-                            <option value="Psychologist">Psychologist</option>
-                            <option value="Canteen">Canteen Staff</option>
-                            <option value="Staff">General Staff</option>
-                        </select>
-                        <button type="submit" class="w-full bg-blue-600 text-white p-3 rounded-lg font-semibold hover:bg-blue-700 transition">Create Account</button>
-                    </form>
-                </div>
-                <!-- User List -->
-                <div class="col-span-2 bg-white rounded-lg shadow-md overflow-x-auto">
-                    <h3 class="text-xl font-bold border-b p-4 text-blue-600">Current System Users</h3>
-                    <table class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Username</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="user-table-body" class="bg-white divide-y divide-gray-200"></tbody>
-                    </table>
-                </div>
-            </div>
-        </section>
+      <!-- User Management View (Admin Only) -->
+      <section id="user-management-view" class="view-section hidden p-8">
+        <h2 class="text-2xl font-bold mb-6">User & Access Control</h2>
+        <div class="grid grid-cols-3 gap-8">
+          <!-- User Creation Panel -->
+          <div class="col-span-1 bg-white p-6 rounded-lg shadow-md h-min">
+            <h3 class="text-xl font-bold border-b pb-2 mb-4 text-blue-600">Create New User</h3>
+            <form onsubmit="createUser(event)">
+              <input
+                name="new-name"
+                class="w-full p-3 border rounded-lg mb-3"
+                placeholder="Full Name"
+                required
+              />
+              <input
+                name="new-username"
+                class="w-full p-3 border rounded-lg mb-3"
+                placeholder="Username (Unique ID)"
+                required
+              />
+              <input
+                type="password"
+                name="new-password"
+                class="w-full p-3 border rounded-lg mb-3"
+                placeholder="Password"
+                required
+              />
+              <select name="new-role" class="w-full p-3 border rounded-lg bg-white mb-4" required>
+                <option value="Admin">Admin (Imran Saab)</option>
+                <option value="Doctor">Doctor</option>
+                <option value="Psychologist">Psychologist</option>
+                <option value="Canteen">Canteen Staff</option>
+                <option value="Staff">General Staff</option>
+              </select>
+              <button
+                type="submit"
+                class="w-full bg-blue-600 text-white p-3 rounded-lg font-semibold hover:bg-blue-700 transition"
+              >
+                Create Account
+              </button>
+            </form>
+          </div>
+          <!-- User List -->
+          <div class="col-span-2 bg-white rounded-lg shadow-md overflow-x-auto">
+            <h3 class="text-xl font-bold border-b p-4 text-blue-600">Current System Users</h3>
+            <table class="min-w-full divide-y divide-gray-200">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th
+                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
+                    Name
+                  </th>
+                  <th
+                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
+                    Username
+                  </th>
+                  <th
+                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
+                    Role
+                  </th>
+                  <th
+                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody id="user-table-body" class="bg-white divide-y divide-gray-200"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
     </main>
 
     <!-- EXPORT MODAL (Retained) -->
-    <div id="export-modal" class="fixed inset-0 bg-gray-900 bg-opacity-50 hidden flex items-center justify-center z-50">
-        <div class="bg-white p-6 rounded-xl shadow-2xl w-96">
-            <h3 class="font-bold text-lg mb-4">Export Patient Data</h3>
-            <label class="block mb-4"><input type="radio" name="export-mode" value="all" checked> All Fields (Recommended)</label>
-            <button onclick="downloadExcel()" class="bg-green-600 text-white w-full py-3 rounded-lg mt-4 hover:bg-green-700 transition">Download</button>
-            <button onclick="closeExportModal()" class="w-full py-2 mt-2 text-gray-500 hover:text-gray-700">Cancel</button>
-        </div>
+    <div
+      id="export-modal"
+      class="fixed inset-0 bg-gray-900 bg-opacity-50 hidden flex items-center justify-center z-50"
+    >
+      <div class="bg-white p-6 rounded-xl shadow-2xl w-96">
+        <h3 class="font-bold text-lg mb-4">Export Patient Data</h3>
+        <label class="block mb-4"
+          ><input type="radio" name="export-mode" value="all" checked /> All Fields
+          (Recommended)</label
+        >
+        <button
+          onclick="downloadExcel()"
+          class="bg-green-600 text-white w-full py-3 rounded-lg mt-4 hover:bg-green-700 transition"
+        >
+          Download
+        </button>
+        <button
+          onclick="closeExportModal()"
+          class="w-full py-2 mt-2 text-gray-500 hover:text-gray-700"
+        >
+          Cancel
+        </button>
+      </div>
     </div>
     <script>
-        window.openExportModal = () => document.getElementById('export-modal').classList.remove('hidden');
-        window.closeExportModal = () => document.getElementById('export-modal').classList.add('hidden');
-        
-        // --- PASSWORD CHANGE MODAL LOGIC ---
-        window.changePasswordModal = () => document.getElementById('password-modal').classList.remove('hidden');
-        window.closePasswordModal = () => document.getElementById('password-modal').classList.add('hidden');
+      window.openExportModal = () =>
+        document.getElementById('export-modal').classList.remove('hidden');
+      window.closeExportModal = () =>
+        document.getElementById('export-modal').classList.add('hidden');
+
+      window.downloadExcel = async () => {
+        try {
+          const response = await fetch('/api/export', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ fields: 'all' }),
+          });
+
+          if (response.ok) {
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'patients_export.xlsx';
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+            window.closeExportModal();
+          } else {
+            alert('Export failed: ' + (await response.text()));
+          }
+        } catch (error) {
+          alert('Error: ' + error.message);
+        }
+      };
+
+      // --- PASSWORD CHANGE MODAL LOGIC ---
+      window.changePasswordModal = () =>
+        document.getElementById('password-modal').classList.remove('hidden');
+      window.closePasswordModal = () =>
+        document.getElementById('password-modal').classList.add('hidden');
     </script>
-    
+
     <!-- PASSWORD CHANGE MODAL -->
-    <div id="password-modal" class="fixed inset-0 bg-gray-900 bg-opacity-50 hidden flex items-center justify-center z-50">
-        <div class="bg-white p-6 rounded-xl shadow-2xl w-96">
-            <h3 class="font-bold text-lg mb-4">Change Your Password</h3>
-            <form onsubmit="changePassword(event)">
-                <input type="password" name="old-password" class="w-full p-3 border rounded-lg mb-3" placeholder="Current Password" required>
-                <input type="password" name="new-password-user" class="w-full p-3 border rounded-lg mb-4" placeholder="New Password (min 6 chars)" required minlength="6">
-                <button type="submit" class="bg-blue-600 text-white w-full py-3 rounded-lg font-semibold hover:bg-blue-700 transition">Change Password</button>
-            </form>
-            <button onclick="closePasswordModal()" class="w-full py-2 mt-2 text-gray-500 hover:text-gray-700">Cancel</button>
-        </div>
+    <div
+      id="password-modal"
+      class="fixed inset-0 bg-gray-900 bg-opacity-50 hidden flex items-center justify-center z-50"
+    >
+      <div class="bg-white p-6 rounded-xl shadow-2xl w-96">
+        <h3 class="font-bold text-lg mb-4">Change Your Password</h3>
+        <form onsubmit="changePassword(event)">
+          <input
+            type="password"
+            name="old-password"
+            class="w-full p-3 border rounded-lg mb-3"
+            placeholder="Current Password"
+            required
+          />
+          <input
+            type="password"
+            name="new-password-user"
+            class="w-full p-3 border rounded-lg mb-4"
+            placeholder="New Password (min 6 chars)"
+            required
+            minlength="6"
+          />
+          <button
+            type="submit"
+            class="bg-blue-600 text-white w-full py-3 rounded-lg font-semibold hover:bg-blue-700 transition"
+          >
+            Change Password
+          </button>
+        </form>
+        <button
+          onclick="closePasswordModal()"
+          class="w-full py-2 mt-2 text-gray-500 hover:text-gray-700"
+        >
+          Cancel
+        </button>
+      </div>
     </div>
-    
+
     <!-- PRINT TEMPLATE (Retained) -->
     <div id="printable-area">
-        <!-- ... (Print template content retained from original) ... -->
-        <div class="print-container">
-            <div class="print-header">
-                <i class="fas fa-brain print-logo-icon"></i>
-                <div class="print-title-block">
-                    <div class="print-pro">PRO</div>
-                    <div class="print-sub-pro">PAKISTAN RECOVERY OASIS</div>
-                    <div class="print-tagline">Addiction Treatment & Psychological Services</div>
-                </div>
-            </div>
-            <div class="grid grid-cols-2 gap-x-8 text-sm">
-                <div class="print-row"><span class="print-label">Patient's Name:</span> <span id="pr-name" class="print-value"></span></div>
-                <div class="print-row"><span class="print-label">Father's Name:</span> <span id="pr-father" class="print-value"></span></div>
-                <div class="print-row"><span class="print-label">Date of Admission:</span> <span id="pr-admission" class="print-value"></span></div>
-                <div class="print-row"><span class="print-label">I.D. No.:</span> <span id="pr-id" class="print-value"></span></div>
-                <div class="print-row"><span class="print-label">Age:</span> <span id="pr-age" class="print-value"></span></div>
-                <div class="print-row"><span class="print-label">CNIC No.:</span> <span id="pr-cnic" class="print-value"></span></div>
-                <div class="print-row"><span class="print-label">Guardian Name:</span> <span id="pr-guardian" class="print-value"></span></div>
-                <div class="print-row"><span class="print-label">Relation:</span> <span id="pr-relation" class="print-value"></span></div>
-                <div class="print-row"><span class="print-label">Drug of Problem:</span> <span id="pr-drug" class="print-value"></span></div>
-                <div class="print-row"><span class="print-label">Contact No:</span> <span id="pr-contact" class="print-value"></span></div>
-                <div class="print-row"><span class="print-label">Marital Status:</span> <span id="pr-marital" class="print-value"></span></div>
-                <div class="print-row"><span class="print-label">Prev Admissions:</span> <span id="pr-prev" class="print-value"></span></div>
-            </div>
-            <div class="print-row mt-4"><span class="print-label w-24">Address:</span> <span id="pr-address" class="print-value"></span></div>
-            <div class="print-row"><span class="print-label w-32">Presenting Complaint:</span> <span id="pr-complaint" class="print-value"></span></div>
-            <div class="mt-6 border border-black h-32 p-2"><strong>History:</strong></div>
-            <div class="mt-4 border border-black h-32 p-2"><strong>General Physical Examination:</strong></div>
-            <div class="mt-6">
-                <strong>Systematic examination / Vital Signs</strong>
-                <table class="print-table">
-                    <tr><th>Resp</th><td></td> <th>BP</th><td></td></tr>
-                    <tr><th>GIT</th><td></td> <th>Pulse</th><td></td></tr>
-                    <tr><th>CVS</th><td></td> <th>Temp</th><td></td></tr>
-                    <tr><th>CNS</th><td></td> <th>R/R</th><td></td></tr>
-                    <tr><th>BSR</th><td></td> <th>Weight</th><td></td></tr>
-                </table>
-            </div>
-        </div>
-        <div class="page-break"></div>
-        <!-- Page 2: DAST-10 -->
-        <div class="print-container">
-            <h2 class="text-xl font-bold text-center mb-4">Drug Abuse Screening Test, DAST-10</h2>
-            <p class="text-sm italic mb-4">The following questions concern information about your possible involvement with drugs not including alcoholic beverages during the past 12 months.</p>
-            <table class="print-table">
-                <thead><tr class="bg-gray-100"><th class="w-12 text-center">#</th><th>In the past 12 months...</th><th class="w-12 text-center">Yes</th><th class="w-12 text-center">No</th></tr></thead>
-                <tbody>
-                    <tr><td>1</td><td>Have you used drugs other than those required for medical reasons?</td><td></td><td></td></tr>
-                    <tr><td>2</td><td>Do you abuse more than one drug at a time?</td><td></td><td></td></tr>
-                    <tr><td>3</td><td>Are you unable to stop abusing drugs when you want to?</td><td></td><td></td></tr>
-                    <tr><td>4</td><td>Have you ever had blackouts or flashbacks as a result of drug use?</td><td></td><td></td></tr>
-                    <tr><td>5</td><td>Do you ever feel bad or guilty about your drug use?</td><td></td><td></td></tr>
-                    <tr><td>6</td><td>Does your spouse (or parents) ever complain about your involvement with drugs?</td><td></td><td></td></tr>
-                    <tr><td>7</td><td>Have you neglected your family because of your use of drugs?</td><td></td><td></td></tr>
-                    <tr><td>8</td><td>Have you engaged in illegal activities in order to obtain drugs?</td><td></td><td></td></tr>
-                    <tr><td>9</td><td>Have you ever experienced withdrawal symptoms (felt sick) when you stopped?</td><td></td><td></td></tr>
-                    <tr><td>10</td><td>Have you had medical problems as a result of your drug use?</td><td></td><td></td></tr>
-                </tbody>
-            </table>
-            <div class="mt-6 border p-4 text-center"><strong>Scoring:</strong> Score 1 point for each "Yes", except for question 3 for which "No" receives 1 point.<br><strong>Total Score: ________</strong></div>
-        </div>
-        <div class="page-break"></div>
-        <!-- Page 3: Order Form & Consent -->
-        <div class="print-container">
-            <h2 class="text-xl font-bold text-center underline mb-6">PATIENT ORDER FORM</h2>
-            <div class="print-row"><span class="print-label">Presenting Complaints:</span></div>
-            <div class="print-row mt-4"><span class="print-label">Psychological:</span></div>
-            <div class="print-row mt-4"><span class="print-label">Biological:</span></div>
-            <div class="print-row mt-4"><span class="print-label">Social:</span></div>
-            <div class="print-row mt-4"><span class="print-label">Diagnosis:</span></div>
-            <div class="print-row mt-4"><span class="print-label">Recommendation:</span></div>
-            <div class="mt-12 text-right"><p>__________________________</p><p>Doctor's Name, Signature & Stamp</p></div>
-            <div class="mt-12 pt-6 border-t-2 border-black">
-                <h2 class="text-center font-bold text-2xl mb-4">Consent Form / اجازت نامہ</h2>
-                <div class="urdu-text text-right text-lg">
-                    <p class="urdu-row">مریض کا نام: <span id="ur-name" class="underline font-bold px-2"></span> ولدیت: <span id="ur-father" class="underline font-bold px-2"></span> عمر: <span id="ur-age" class="underline font-bold px-2"></span></p>
-                    <p class="urdu-row">شناختی کارڈ: <span id="ur-cnic" class="underline font-bold px-2"></span> رابطہ نمبر: <span id="ur-contact" class="underline font-bold px-2"></span> پتہ: <span id="ur-address" class="underline font-bold px-2"></span></p>
-                    <p class="mb-4 text-justify">میں اس بات کی تصدیق کرتا/کرتی ہوں کہ مجھے نشے کی بیماری، اس کے اثرات، علاج کے تمام مراحل، فوائد، ممکنہ مشکلات، اور ممکنہ نتائج کے بارے میں تفصیل سے آگاہ کر دیا گیا ہے۔ میں اس بات کو بھی سمجھتا/سمجھتی ہوں کہ علاج کے دوران کسی بھی قسم کی طبی اور نفسیاتی پیچیدگیاں پیدا ہوسکتی ہیں، اور میں ان سے مکمل طور پر باخبر ہوں۔</p>
-                    <p class="mb-4 text-justify">میں اپنی مرضی اور مکمل ہوش و حواس میں "پاکستان ریکوری اویسس" میں علاج کے لیے داخل ہو رہا/رہی ہوں۔ میں ادارے کے تمام قواعد و ضوابط، طریقہ علاج، اور تربیتی اصولوں سے متفق ہوں اور ان پر عمل کرنے کا پابند ہوں۔</p>
-                    <p class="mb-8">یا میں "پاکستان ریکوری اویسس" کے تمام قواعد و ضوابط اور طریقہ علاج سے متفق ہوں اور اپنی مرضی سے داخل ہو رہا ہوں۔</p>
-                    <div class="flex justify-between mt-12 px-8"><div class="text-center"><p>__________________</p><p>مریض کے دستخط</p></div><div class="text-center"><p>__________________</p><p>والد/سرپرست کے دستخط</p></div></div>
-                </div>
-            </div>
-        </div>
-        <div class="page-break"></div>
-        <!-- Page 4: Rules & Authority (Urdu) -->
-        <div class="print-container">
-            <h1 class="text-center text-3xl font-bold mb-2">پاکستان ریکوری اویسس</h1>
-            <h2 class="text-center text-xl mb-6">قواعد و ضوابط / اقرار نامہ</h2>
-            <div class="urdu-text text-right text-lg list-disc pr-4 space-y-2">
-                <p>٭ سرپرست کی اجازت کے بغیر کسی سے مریض کی ملاقات نہیں کروائی جائے گی۔</p>
-                <p>٭ مریض سے پہلی ملاقات ایک ماہ کے بعد کروائی جائے گی۔</p>
-                <p>٭ علاج کی مدت __________________ ہے اور مقررہ معیاد سے قبل چھٹی نہیں ہو سکے گی۔</p>
-                <p>٭ مریض کے پاس ٹیلیفون کی سہولت نہیں ہوگی تاہم آپ کا کوئی ضروری پیغام مریض تک پہنچا دیا جائے گا۔</p>
-                <p>٭ کلینک کے باہر سے اشیاء منگوانے میں کلینک پابند نہیں ہوگا۔</p>
-                <p>٭ کلینک میں مریضوں کے ساتھ شائستہ رویہ اختیار کیا جاتا ہے۔ ادارہ حتی الوسع مریضوں کی نگہداشت کرتا ہے۔ تاہم اگر کوئی مریض نشے کی طلب یا مایوسی کی بناء پر اپنی ذات کو کوئی نقصان پہنچاتا ہے تو اس کی ذمہ داری مریض پر ہی عائد ہوتی ہے۔</p>
-                <p>٭ مریض کے لواحقین کا فرض ہے کہ وہ ادارہ سے تعاون فرمائیں۔ اس طریقہ علاج پر وسیع معلومات حاصل کریں۔ اس طرح وہ مریض کے علاج میں تعاون کر سکتے ہیں۔</p>
-                <p>٭ ماہانہ فیس پیشگی ادا کی جائے گی۔</p>
-            </div>
-            <div class="box-section mt-8">
-                <h3 class="text-center font-bold text-2xl mb-4 border-b pb-2">جس سے بھی متعلق ہو</h3>
-                <div class="urdu-text text-right text-lg space-y-3">
-                    <p>حاملین رقعہ ہذا ہمارے سٹاف ممبران ہیں۔ یہ ایک نفسیاتی مریض کو گھر سے لینے جا رہے ہیں جو کہ نشے کا عادی بھی ہے۔ واپسی پر انکے ہمراہ ہو گا۔</p>
-                    <p>اس کے لیے مریض کے گھر والوں کی جانب سے درخواست کی گئی ہے جیسا کہ اندیشہ رہتا ہے کہ کوئی بھی ایسا مریض نقص امن کا موجب بن سکتا ہے۔</p>
-                    <p>ایسی کسی بھی صورت میں ہر خاص و عام سے تعاون کی اپیل کی جاتی ہے۔ شکریہ</p>
-                    <div class="mt-4 border-t pt-4"><p>بحیثیت سرپرست اپنے مریض مسمی ______________________ ولد/زوجہ ______________________</p><p>کو بغرض علاج پاکستان ریکوری اویسس لاہور بھجوا رہا ہوں۔ مجھے کلینک کے قواعد و ضوابط سے آگاہ کر دیا ہے اور مجھے اس سے مکمل اتفاق ہے۔</p></div>
-                    <div class="mt-6"><p>دستخط سرپرست: ______________________ (<span id="ur-auth-name"></span>)</p><p>شناختی کارڈ نمبر: ______________________</p></div>
-                </div>
-            </div>
-        </div>
-        <div class="page-break"></div>
-        <!-- Page 5: Payment Record -->
-        <div class="print-container">
-            <h2 class="text-xl font-bold text-center mb-4">Patient's Payment Record</h2>
-            <table class="print-table">
-                <thead><tr><th>Date</th><th>Amount Received</th><th>Signature</th></tr></thead>
-                <tbody>
-                    <tr class="h-10"><td></td><td></td><td></td></tr><tr class="h-10"><td></td><td></td><td></td></tr><tr class="h-10"><td></td><td></td><td></td></tr><tr class="h-10"><td></td><td></td><td></td></tr><tr class="h-10"><td></td><td></td><td></td></tr><tr class="h-10"><td></td><td></td><td></td></tr><tr class="h-10"><td></td><td></td><td></td></tr><tr class="h-10"><td></td><td></td><td></td></tr>
-                </tbody>
-            </table>
-            <div class="grid grid-cols-2 gap-4 mt-8 font-bold">
-                <div>Charges: _________________</div><div>Canteen: _________________</div><div>Laundry: _________________</div><div>Barber: __________________</div><div>Test: ____________________</div><div>Medicine: ________________</div>
-            </div>
-            <h2 class="text-xl font-bold text-center mt-12 mb-4">Consultant Psychiatrist Visit</h2>
-            <table class="print-table">
-                <thead><tr><th>Date</th><th>Medication / Notes</th></tr></thead>
-                <tbody>
-                    <tr class="h-12"><td></td><td></td></tr><tr class="h-12"><td></td><td></td></tr><tr class="h-12"><td></td><td></td></tr><tr class="h-12"><td></td><td></td></tr><tr class="h-12"><td></td><td></td></tr><tr class="h-12"><td></td><td></td></tr>
-                </tbody>
-            </table>
-        </div>
+      <!-- ... (Print template content retained from original) ... -->
+      <div class="print-container">
+                   
+        <div class="print-header">
+                          <i class="fas fa-brain print-logo-icon"></i>                
+          <div class="print-title-block">
+                               
+            <div class="print-pro">PRO</div>
+                               
+            <div class="print-sub-pro">PAKISTAN RECOVERY OASIS</div>
+                               
+            <div class="print-tagline">Addiction Treatment & Psychological Services</div>
+                           
+          </div>
+                     
+        </div>
+                   
+        <div class="grid grid-cols-2 gap-x-8 text-sm">
+                         
+          <div class="print-row">
+            <span class="print-label">Patient's Name:</span>
+            <span id="pr-name" class="print-value"></span>
+          </div>
+                         
+          <div class="print-row">
+            <span class="print-label">Father's Name:</span>
+            <span id="pr-father" class="print-value"></span>
+          </div>
+                         
+          <div class="print-row">
+            <span class="print-label">Date of Admission:</span>
+            <span id="pr-admission" class="print-value"></span>
+          </div>
+                         
+          <div class="print-row">
+            <span class="print-label">I.D. No.:</span> <span id="pr-id" class="print-value"></span>
+          </div>
+                         
+          <div class="print-row">
+            <span class="print-label">Age:</span> <span id="pr-age" class="print-value"></span>
+          </div>
+                         
+          <div class="print-row">
+            <span class="print-label">CNIC No.:</span>
+            <span id="pr-cnic" class="print-value"></span>
+          </div>
+                         
+          <div class="print-row">
+            <span class="print-label">Guardian Name:</span>
+            <span id="pr-guardian" class="print-value"></span>
+          </div>
+                         
+          <div class="print-row">
+            <span class="print-label">Relation:</span>
+            <span id="pr-relation" class="print-value"></span>
+          </div>
+                         
+          <div class="print-row">
+            <span class="print-label">Drug of Problem:</span>
+            <span id="pr-drug" class="print-value"></span>
+          </div>
+                         
+          <div class="print-row">
+            <span class="print-label">Contact No:</span>
+            <span id="pr-contact" class="print-value"></span>
+          </div>
+                         
+          <div class="print-row">
+            <span class="print-label">Marital Status:</span>
+            <span id="pr-marital" class="print-value"></span>
+          </div>
+                         
+          <div class="print-row">
+            <span class="print-label">Prev Admissions:</span>
+            <span id="pr-prev" class="print-value"></span>
+          </div>
+                     
+        </div>
+                   
+        <div class="print-row mt-4">
+          <span class="print-label w-24">Address:</span>
+          <span id="pr-address" class="print-value"></span>
+        </div>
+                   
+        <div class="print-row">
+          <span class="print-label w-32">Presenting Complaint:</span>
+          <span id="pr-complaint" class="print-value"></span>
+        </div>
+                   
+        <div class="mt-6 border border-black h-32 p-2"><strong>History:</strong></div>
+                   
+        <div class="mt-4 border border-black h-32 p-2">
+          <strong>General Physical Examination:</strong>
+        </div>
+                   
+        <div class="mt-6">
+                          <strong>Systematic examination / Vital Signs</strong>                
+          <table class="print-table">
+                               
+            <tr>
+              <th>Resp</th>
+              <td></td>
+              <th>BP</th>
+              <td></td>
+            </tr>
+                               
+            <tr>
+              <th>GIT</th>
+              <td></td>
+              <th>Pulse</th>
+              <td></td>
+            </tr>
+                               
+            <tr>
+              <th>CVS</th>
+              <td></td>
+              <th>Temp</th>
+              <td></td>
+            </tr>
+                               
+            <tr>
+              <th>CNS</th>
+              <td></td>
+              <th>R/R</th>
+              <td></td>
+            </tr>
+                               
+            <tr>
+              <th>BSR</th>
+              <td></td>
+              <th>Weight</th>
+              <td></td>
+            </tr>
+                           
+          </table>
+                     
+        </div>
+               
+      </div>
+             
+      <div class="page-break"></div>
+             
+      <!-- Page 2: DAST-10 -->
+             
+      <div class="print-container">
+                   
+        <h2 class="text-xl font-bold text-center mb-4">Drug Abuse Screening Test, DAST-10</h2>
+                   
+        <p class="text-sm italic mb-4">
+          The following questions concern information about your possible involvement with drugs not
+          including alcoholic beverages during the past 12 months.
+        </p>
+                   
+        <table class="print-table">
+                         
+          <thead>
+            <tr class="bg-gray-100">
+              <th class="w-12 text-center">#</th>
+              <th>In the past 12 months...</th>
+              <th class="w-12 text-center">Yes</th>
+              <th class="w-12 text-center">No</th>
+            </tr>
+          </thead>
+                         
+          <tbody>
+                               
+            <tr>
+              <td>1</td>
+              <td>Have you used drugs other than those required for medical reasons?</td>
+              <td></td>
+              <td></td>
+            </tr>
+                               
+            <tr>
+              <td>2</td>
+              <td>Do you abuse more than one drug at a time?</td>
+              <td></td>
+              <td></td>
+            </tr>
+                               
+            <tr>
+              <td>3</td>
+              <td>Are you unable to stop abusing drugs when you want to?</td>
+              <td></td>
+              <td></td>
+            </tr>
+                               
+            <tr>
+              <td>4</td>
+              <td>Have you ever had blackouts or flashbacks as a result of drug use?</td>
+              <td></td>
+              <td></td>
+            </tr>
+                               
+            <tr>
+              <td>5</td>
+              <td>Do you ever feel bad or guilty about your drug use?</td>
+              <td></td>
+              <td></td>
+            </tr>
+                               
+            <tr>
+              <td>6</td>
+              <td>
+                Does your spouse (or parents) ever complain about your involvement with drugs?
+              </td>
+              <td></td>
+              <td></td>
+            </tr>
+                               
+            <tr>
+              <td>7</td>
+              <td>Have you neglected your family because of your use of drugs?</td>
+              <td></td>
+              <td></td>
+            </tr>
+                               
+            <tr>
+              <td>8</td>
+              <td>Have you engaged in illegal activities in order to obtain drugs?</td>
+              <td></td>
+              <td></td>
+            </tr>
+                               
+            <tr>
+              <td>9</td>
+              <td>Have you ever experienced withdrawal symptoms (felt sick) when you stopped?</td>
+              <td></td>
+              <td></td>
+            </tr>
+                               
+            <tr>
+              <td>10</td>
+              <td>Have you had medical problems as a result of your drug use?</td>
+              <td></td>
+              <td></td>
+            </tr>
+                           
+          </tbody>
+                     
+        </table>
+                   
+        <div class="mt-6 border p-4 text-center">
+          <strong>Scoring:</strong> Score 1 point for each "Yes", except for question 3 for which
+          "No" receives 1 point.<br /><strong>Total Score: ________</strong>
+        </div>
+               
+      </div>
+             
+      <div class="page-break"></div>
+             
+      <!-- Page 3: Order Form & Consent -->
+             
+      <div class="print-container">
+                   
+        <h2 class="text-xl font-bold text-center underline mb-6">PATIENT ORDER FORM</h2>
+                   
+        <div class="print-row"><span class="print-label">Presenting Complaints:</span></div>
+                   
+        <div class="print-row mt-4"><span class="print-label">Psychological:</span></div>
+                   
+        <div class="print-row mt-4"><span class="print-label">Biological:</span></div>
+                   
+        <div class="print-row mt-4"><span class="print-label">Social:</span></div>
+                   
+        <div class="print-row mt-4"><span class="print-label">Diagnosis:</span></div>
+                   
+        <div class="print-row mt-4"><span class="print-label">Recommendation:</span></div>
+                   
+        <div class="mt-12 text-right">
+          <p>__________________________</p>
+          <p>Doctor's Name, Signature & Stamp</p>
+        </div>
+                   
+        <div class="mt-12 pt-6 border-t-2 border-black">
+                         
+          <h2 class="text-center font-bold text-2xl mb-4">Consent Form / اجازت نامہ</h2>
+                         
+          <div class="urdu-text text-right text-lg">
+                               
+            <p class="urdu-row">
+              مریض کا نام: <span id="ur-name" class="underline font-bold px-2"></span> ولدیت:
+              <span id="ur-father" class="underline font-bold px-2"></span> عمر:
+              <span id="ur-age" class="underline font-bold px-2"></span>
+            </p>
+                               
+            <p class="urdu-row">
+              شناختی کارڈ: <span id="ur-cnic" class="underline font-bold px-2"></span> رابطہ نمبر:
+              <span id="ur-contact" class="underline font-bold px-2"></span> پتہ:
+              <span id="ur-address" class="underline font-bold px-2"></span>
+            </p>
+                               
+            <p class="mb-4 text-justify">
+              میں اس بات کی تصدیق کرتا/کرتی ہوں کہ مجھے نشے کی بیماری، اس کے اثرات، علاج کے تمام
+              مراحل، فوائد، ممکنہ مشکلات، اور ممکنہ نتائج کے بارے میں تفصیل سے آگاہ کر دیا گیا ہے۔
+              میں اس بات کو بھی سمجھتا/سمجھتی ہوں کہ علاج کے دوران کسی بھی قسم کی طبی اور نفسیاتی
+              پیچیدگیاں پیدا ہوسکتی ہیں، اور میں ان سے مکمل طور پر باخبر ہوں۔
+            </p>
+                               
+            <p class="mb-4 text-justify">
+              میں اپنی مرضی اور مکمل ہوش و حواس میں "پاکستان ریکوری اویسس" میں علاج کے لیے داخل ہو
+              رہا/رہی ہوں۔ میں ادارے کے تمام قواعد و ضوابط، طریقہ علاج، اور تربیتی اصولوں سے متفق
+              ہوں اور ان پر عمل کرنے کا پابند ہوں۔
+            </p>
+                               
+            <p class="mb-8">
+              یا میں "پاکستان ریکوری اویسس" کے تمام قواعد و ضوابط اور طریقہ علاج سے متفق ہوں اور
+              اپنی مرضی سے داخل ہو رہا ہوں۔
+            </p>
+                               
+            <div class="flex justify-between mt-12 px-8">
+              <div class="text-center">
+                <p>__________________</p>
+                <p>مریض کے دستخط</p>
+              </div>
+              <div class="text-center">
+                <p>__________________</p>
+                <p>والد/سرپرست کے دستخط</p>
+              </div>
+            </div>
+                           
+          </div>
+                     
+        </div>
+               
+      </div>
+             
+      <div class="page-break"></div>
+             
+      <!-- Page 4: Rules & Authority (Urdu) -->
+             
+      <div class="print-container">
+                   
+        <h1 class="text-center text-3xl font-bold mb-2">پاکستان ریکوری اویسس</h1>
+                   
+        <h2 class="text-center text-xl mb-6">قواعد و ضوابط / اقرار نامہ</h2>
+                   
+        <div class="urdu-text text-right text-lg list-disc pr-4 space-y-2">
+                         
+          <p>٭ سرپرست کی اجازت کے بغیر کسی سے مریض کی ملاقات نہیں کروائی جائے گی۔</p>
+                         
+          <p>٭ مریض سے پہلی ملاقات ایک ماہ کے بعد کروائی جائے گی۔</p>
+                         
+          <p>٭ علاج کی مدت __________________ ہے اور مقررہ معیاد سے قبل چھٹی نہیں ہو سکے گی۔</p>
+                         
+          <p>
+            ٭ مریض کے پاس ٹیلیفون کی سہولت نہیں ہوگی تاہم آپ کا کوئی ضروری پیغام مریض تک پہنچا دیا
+            جائے گا۔
+          </p>
+                         
+          <p>٭ کلینک کے باہر سے اشیاء منگوانے میں کلینک پابند نہیں ہوگا۔</p>
+                         
+          <p>
+            ٭ کلینک میں مریضوں کے ساتھ شائستہ رویہ اختیار کیا جاتا ہے۔ ادارہ حتی الوسع مریضوں کی
+            نگہداشت کرتا ہے۔ تاہم اگر کوئی مریض نشے کی طلب یا مایوسی کی بناء پر اپنی ذات کو کوئی
+            نقصان پہنچاتا ہے تو اس کی ذمہ داری مریض پر ہی عائد ہوتی ہے۔
+          </p>
+                         
+          <p>
+            ٭ مریض کے لواحقین کا فرض ہے کہ وہ ادارہ سے تعاون فرمائیں۔ اس طریقہ علاج پر وسیع معلومات
+            حاصل کریں۔ اس طرح وہ مریض کے علاج میں تعاون کر سکتے ہیں۔
+          </p>
+                         
+          <p>٭ ماہانہ فیس پیشگی ادا کی جائے گی۔</p>
+                     
+        </div>
+                   
+        <div class="box-section mt-8">
+                         
+          <h3 class="text-center font-bold text-2xl mb-4 border-b pb-2">جس سے بھی متعلق ہو</h3>
+                         
+          <div class="urdu-text text-right text-lg space-y-3">
+                               
+            <p>
+              حاملین رقعہ ہذا ہمارے سٹاف ممبران ہیں۔ یہ ایک نفسیاتی مریض کو گھر سے لینے جا رہے ہیں
+              جو کہ نشے کا عادی بھی ہے۔ واپسی پر انکے ہمراہ ہو گا۔
+            </p>
+                               
+            <p>
+              اس کے لیے مریض کے گھر والوں کی جانب سے درخواست کی گئی ہے جیسا کہ اندیشہ رہتا ہے کہ
+              کوئی بھی ایسا مریض نقص امن کا موجب بن سکتا ہے۔
+            </p>
+                               
+            <p>ایسی کسی بھی صورت میں ہر خاص و عام سے تعاون کی اپیل کی جاتی ہے۔ شکریہ</p>
+                               
+            <div class="mt-4 border-t pt-4">
+              <p>
+                بحیثیت سرپرست اپنے مریض مسمی ______________________ ولد/زوجہ ______________________
+              </p>
+              <p>
+                کو بغرض علاج پاکستان ریکوری اویسس لاہور بھجوا رہا ہوں۔ مجھے کلینک کے قواعد و ضوابط
+                سے آگاہ کر دیا ہے اور مجھے اس سے مکمل اتفاق ہے۔
+              </p>
+            </div>
+                               
+            <div class="mt-6">
+              <p>دستخط سرپرست: ______________________ (<span id="ur-auth-name"></span>)</p>
+              <p>شناختی کارڈ نمبر: ______________________</p>
+            </div>
+                           
+          </div>
+                     
+        </div>
+               
+      </div>
+             
+      <div class="page-break"></div>
+             
+      <!-- Page 5: Payment Record -->
+             
+      <div class="print-container">
+                   
+        <h2 class="text-xl font-bold text-center mb-4">Patient's Payment Record</h2>
+                   
+        <table class="print-table">
+                         
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Amount Received</th>
+              <th>Signature</th>
+            </tr>
+          </thead>
+                         
+          <tbody>
+                               
+            <tr class="h-10">
+              <td></td>
+              <td></td>
+              <td></td>
+            </tr>
+            <tr class="h-10">
+              <td></td>
+              <td></td>
+              <td></td>
+            </tr>
+            <tr class="h-10">
+              <td></td>
+              <td></td>
+              <td></td>
+            </tr>
+            <tr class="h-10">
+              <td></td>
+              <td></td>
+              <td></td>
+            </tr>
+            <tr class="h-10">
+              <td></td>
+              <td></td>
+              <td></td>
+            </tr>
+            <tr class="h-10">
+              <td></td>
+              <td></td>
+              <td></td>
+            </tr>
+            <tr class="h-10">
+              <td></td>
+              <td></td>
+              <td></td>
+            </tr>
+            <tr class="h-10">
+              <td></td>
+              <td></td>
+              <td></td>
+            </tr>
+                           
+          </tbody>
+                     
+        </table>
+                   
+        <div class="grid grid-cols-2 gap-4 mt-8 font-bold">
+                         
+          <div>Charges: _________________</div>
+          <div>Canteen: _________________</div>
+          <div>Laundry: _________________</div>
+          <div>Barber: __________________</div>
+          <div>Test: ____________________</div>
+          <div>Medicine: ________________</div>
+                     
+        </div>
+                   
+        <h2 class="text-xl font-bold text-center mt-12 mb-4">Consultant Psychiatrist Visit</h2>
+                   
+        <table class="print-table">
+                         
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Medication / Notes</th>
+            </tr>
+          </thead>
+                         
+          <tbody>
+                               
+            <tr class="h-12">
+              <td></td>
+              <td></td>
+            </tr>
+            <tr class="h-12">
+              <td></td>
+              <td></td>
+            </tr>
+            <tr class="h-12">
+              <td></td>
+              <td></td>
+            </tr>
+            <tr class="h-12">
+              <td></td>
+              <td></td>
+            </tr>
+            <tr class="h-12">
+              <td></td>
+              <td></td>
+            </tr>
+            <tr class="h-12">
+              <td></td>
+              <td></td>
+            </tr>
+                           
+          </tbody>
+                     
+        </table>
+               
+      </div>
     </div>
-</body>
+  </body>
 </html>
