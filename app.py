@@ -261,6 +261,16 @@ def update_patient(id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route('/api/patients/<id>', methods=['DELETE'])
+@role_required(['Admin'])
+def delete_patient(id):
+    if not check_db(): return jsonify({"error": "Database error"}), 500
+    try:
+        mongo.db.patients.delete_one({'_id': ObjectId(id)})
+        return jsonify({"message": "Patient deleted"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 # --- NEW PATIENT RECORD APIS (SESSION NOTES & MEDICAL RECORDS) ---
 
 @app.route('/api/patients/<patient_id>/session_note', methods=['POST'])
