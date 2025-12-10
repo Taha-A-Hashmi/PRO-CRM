@@ -77,6 +77,16 @@
           visibility: visible;
         }
 
+        /* Ensure Font Awesome icons are visible */
+        .fas,
+        .far,
+        .fab,
+        .fa {
+          visibility: visible !important;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+
         /* Positioning */
         #printable-area {
           position: absolute;
@@ -385,10 +395,10 @@
           if (res.ok) {
             await initApp();
           } else {
-            alert('Login failed.');
+            showSuccessModal('Login failed.', true);
           }
         } catch (e) {
-          alert('Login error.');
+          showSuccessModal('Login error.', true);
         }
       };
 
@@ -399,7 +409,7 @@
 
       window.navigateTo = function (viewId) {
         if (viewId === 'accounts-view' && currentUser.role !== 'Admin') {
-          alert('Access Denied.');
+          showSuccessModal('Access Denied.', true);
           return;
         }
 
@@ -462,7 +472,7 @@
 
       window.printCallMeetingChart = function () {
         if (!currentCallMeetingRecords || currentCallMeetingRecords.length === 0) {
-          alert('No data to print.');
+          showSuccessModal('No data to print.', true);
           return;
         }
 
@@ -476,6 +486,7 @@
 
         let tableHTML = `
           <html>
+                          <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
             <head>
               <title>Call & Meeting Report</title>
               <style>
@@ -488,8 +499,6 @@
                 .header {
                   text-align: center;
                   margin-bottom: 30px;
-                  border-bottom: 2px solid #4ade80;
-                  padding-bottom: 15px;
                 }
                 .header h1 {
                   margin: 0 0 5px 0;
@@ -558,6 +567,18 @@
               </style>
             </head>
             <body>
+              <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 20px; gap: 15px; border-bottom: 2px solid #10b981; padding-bottom: 15px;">
+                <i class="fas fa-brain" style="font-size: 40px; color: #10b981"></i>
+                <div style="text-align: center">
+                  <div style="font-size: 24px; font-weight: bold; color: #10b981">PRO</div>
+                  <div style="font-size: 14px; font-weight: bold; color: #059669">
+                    PAKISTAN RECOVERY OASIS
+                  </div>
+                  <div style="font-size: 12px; color: #666">
+                    Addiction Treatment & Psychological Services
+                  </div>
+                </div>
+              </div>
               <div class="header">
                 <h1>Call & Meeting Tracker Report</h1>
                 <p>Printed on ${formattedDate}</p>
@@ -859,6 +880,16 @@
 
       async function updateDashboard() {
         try {
+          // Show admin-only cards only for admin users
+          const isAdmin = currentUser.role === 'Admin';
+          const incomeCard = document.getElementById('dash-income-card');
+          const canteenCard = document.getElementById('dash-canteen-card');
+          const callMeetingSection = document.getElementById('dash-call-meeting-section');
+
+          if (incomeCard) incomeCard.style.display = isAdmin ? '' : 'none';
+          if (canteenCard) canteenCard.style.display = isAdmin ? '' : 'none';
+          if (callMeetingSection) callMeetingSection.style.display = isAdmin ? '' : 'none';
+
           const res = await fetch('/api/dashboard');
           if (!res.ok) return;
           const metrics = await res.json();
@@ -970,7 +1001,8 @@
           showSuccessModal('Automated entries cannot be deleted.');
           return;
         }
-        if (!confirm('Delete this expense?')) return;
+        const confirmed = await showConfirmModal('Delete this expense?');
+        if (!confirmed) return;
         const res = await fetch(`/api/expenses/${id}`, { method: 'DELETE' });
         if (res.ok) {
           showSuccessModal('Expense deleted');
@@ -1057,6 +1089,16 @@
           if (res.ok) {
             patientsData = await res.json();
             renderPatientsTable(patientsData);
+
+            // Update table headers based on user role
+            const isAdmin = currentUser.role === 'Admin';
+            const headerId = document.getElementById('header-id');
+            const headerContact = document.getElementById('header-contact');
+            const headerFee = document.getElementById('header-fee');
+
+            if (headerId) headerId.style.display = isAdmin ? '' : 'none';
+            if (headerContact) headerContact.style.display = isAdmin ? '' : 'none';
+            if (headerFee) headerFee.style.display = isAdmin ? '' : 'none';
           }
         } catch (e) {
           console.error(e);
@@ -1080,22 +1122,31 @@
             showPatientDetail(id);
           };
 
+          const isAdmin = currentUser.role === 'Admin';
           const fee = formatCurrency(parseInt(p.monthlyFee.replace(/,/g, '') || 0));
           const deleteBtn =
             currentUser.role === 'Admin'
-              ? `<button class="action-btn text-red-400 hover:text-red-600" onclick="event.stopPropagation(); deletePatient('${id}');"><i class="fas fa-trash"></i></button>`
+              ? `<button class="action-btn text-red-500 hover:text-red-700 transition" onclick="event.stopPropagation(); deletePatient('${id}');"><i class="fas fa-trash"></i></button>`
               : '';
 
-          tr.innerHTML = `<td class="px-6 py-4 font-medium whitespace-nowrap">${p.name}</td>
-                          <td class="px-6 py-4 text-gray-500 whitespace-nowrap">${
-                            p.idNo || '-'
-                          }</td>
-                          <td class="px-6 py-4 text-gray-500 whitespace-nowrap">${
-                            p.contactNo || '-'
-                          }</td>
-                          <td class="px-6 py-4 font-semibold text-green-700 whitespace-nowrap">${fee}</td>
-                          <td class="px-6 py-4 text-center"><span class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">Active</span></td>
-                          <td class="px-6 py-4 text-right">${deleteBtn}</td>`;
+          // Admin sees: Name, ID, Contact, Fee, Status, Actions
+          // Non-admin sees: Name, Status only
+          if (isAdmin) {
+            tr.innerHTML = `<td class="px-6 py-4 font-medium whitespace-nowrap">${p.name}</td>
+                            <td class="px-6 py-4 text-gray-500 whitespace-nowrap">${
+                              p.idNo || '-'
+                            }</td>
+                            <td class="px-6 py-4 text-gray-500 whitespace-nowrap">${
+                              p.contactNo || '-'
+                            }</td>
+                            <td class="px-6 py-4 font-semibold text-green-700 whitespace-nowrap">${fee}</td>
+                            <td class="px-6 py-4 text-center"><span class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">Active</span></td>
+                            <td class="px-6 py-4 text-right">${deleteBtn}</td>`;
+          } else {
+            tr.innerHTML = `<td class="px-6 py-4 font-medium whitespace-nowrap">${p.name}</td>
+                            <td class="px-6 py-4 text-center"><span class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">Active</span></td>
+                            <td class="px-6 py-4 text-right"></td>`;
+          }
           tbody.appendChild(tr);
         });
       }
@@ -1113,6 +1164,8 @@
           address: document.getElementById('new-patient-address').value,
           monthlyFee: document.getElementById('new-patient-fee').value || '0',
           monthlyAllowance: document.getElementById('new-patient-allowance').value || '3000',
+          laundryStatus: document.getElementById('new-patient-laundry-status').checked,
+          laundryAmount: document.getElementById('new-patient-laundry-amount').value || '3500',
         };
 
         const res = await fetch('/api/patients', {
@@ -1124,6 +1177,7 @@
         if (res.ok) {
           document.getElementById('new-admission-modal').classList.add('hidden');
           document.getElementById('new-admission-form').reset();
+          document.getElementById('laundry-amount-container').classList.add('hidden');
           await fetchPatients();
           showSuccessModal('Patient admitted successfully!');
         } else {
@@ -1136,6 +1190,17 @@
         const today = new Date().toISOString().split('T')[0];
         document.getElementById('new-patient-admission').value = today;
         document.getElementById('new-admission-modal').classList.remove('hidden');
+
+        // Add event listener for laundry checkbox
+        const laundryCheckbox = document.getElementById('new-patient-laundry-status');
+        laundryCheckbox.addEventListener('change', function () {
+          const container = document.getElementById('laundry-amount-container');
+          if (this.checked) {
+            container.classList.remove('hidden');
+          } else {
+            container.classList.add('hidden');
+          }
+        });
       };
 
       window.showSuccessModal = function (message, isError = false) {
@@ -1157,6 +1222,21 @@
         setTimeout(() => {
           modal.classList.add('hidden');
         }, 3000);
+      };
+
+      window.showConfirmModal = function (message) {
+        return new Promise((resolve) => {
+          const modal = document.getElementById('confirm-modal');
+          const messageEl = document.getElementById('confirm-message');
+
+          messageEl.textContent = message;
+          modal.classList.remove('hidden');
+
+          window.confirmCallback = function (result) {
+            modal.classList.add('hidden');
+            resolve(result);
+          };
+        });
       };
 
       window.deletePatient = async function (id) {
@@ -1202,6 +1282,7 @@
         const p = patientsData.find((x) => (x._id || x.id) === id);
         if (!p) return;
 
+        const isAdmin = currentUser.role === 'Admin';
         const setVal = (id, val) => {
           const el = document.getElementById(id);
           if (el) el.value = val || '';
@@ -1221,6 +1302,65 @@
         setVal('det-prev', p.prevAdmissions);
         setVal('det-fee', p.monthlyFee);
         setVal('det-allowance', p.monthlyAllowance);
+
+        // Set laundry fields
+        const laundryCheckbox = document.getElementById('det-laundry-status');
+        const laundryLabel = document.getElementById('det-laundry-label');
+        if (laundryCheckbox) {
+          laundryCheckbox.checked = p.laundryStatus || false;
+          if (laundryLabel) {
+            laundryLabel.textContent = laundryCheckbox.checked
+              ? 'Laundry Service Enabled'
+              : 'Enable Laundry Service';
+          }
+          // Add event listener to update label on toggle
+          laundryCheckbox.addEventListener('change', function () {
+            if (laundryLabel) {
+              laundryLabel.textContent = this.checked
+                ? 'Laundry Service Enabled'
+                : 'Enable Laundry Service';
+            }
+          });
+        }
+        setVal('det-laundry-amount', p.laundryAmount || '0');
+
+        // Apply role-based field restrictions
+        const sensitiveFields = [
+          'det-cnic',
+          'det-contact',
+          'det-guardian',
+          'det-relation',
+          'det-address',
+        ];
+        const financialFields = document.querySelectorAll('.financial-input');
+        const financialSection = document.querySelector('.bg-gray-50.p-4');
+
+        sensitiveFields.forEach((fieldId) => {
+          const field = document.getElementById(fieldId);
+          if (field) {
+            if (isAdmin) {
+              field.disabled = false;
+              field.style.display = '';
+            } else {
+              field.disabled = true;
+              field.style.opacity = '0.6';
+            }
+          }
+        });
+
+        financialFields.forEach((field) => {
+          if (isAdmin) {
+            field.disabled = false;
+            field.style.display = '';
+          } else {
+            field.disabled = true;
+            field.style.opacity = '0.6';
+          }
+        });
+
+        if (financialSection) {
+          financialSection.style.display = isAdmin ? '' : 'none';
+        }
 
         updateCallCalendar(p.admissionDate);
         fetchPatientRecords(id);
@@ -1290,13 +1430,18 @@
         if (currentUser.role === 'Admin') {
           data.monthlyFee = document.getElementById('det-fee').value;
           data.monthlyAllowance = document.getElementById('det-allowance').value;
+
+          // Include laundry data
+          const laundryCheckbox = document.getElementById('det-laundry-status');
+          data.laundryStatus = laundryCheckbox ? laundryCheckbox.checked : false;
+          data.laundryAmount = document.getElementById('det-laundry-amount').value || '0';
         }
         await fetch(`/api/patients/${currentPatientId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(data),
         });
-        alert('Details Saved');
+        showSuccessModal('Details Saved');
         fetchPatients();
       };
 
@@ -1320,7 +1465,7 @@
                         <td class="px-6 py-4 font-bold text-green-700 whitespace-nowrap">${fee}</td>
                         <td class="px-6 py-4 font-bold text-orange-600 whitespace-nowrap">${canteen}</td>
                         <td class="px-6 py-4">
-                            <button onclick="printDischargeSlip('${p.id}')" class="bg-gray-800 hover:bg-black text-white px-3 py-1 rounded text-sm shadow">
+                            <button onclick="printDischargeSlip('${p.id}')" class="bg-gray-800 hover:bg-gray-900 text-white px-3 py-1 rounded text-sm shadow-md transition font-semibold">
                                 <i class="fas fa-print mr-1"></i> Discharge
                             </button>
                         </td>
@@ -1334,11 +1479,42 @@
       window.printDischargeSlip = function (id) {
         const p = accountsData.find((x) => x.id === id);
         if (!p) return;
-        document.getElementById('ds-name').textContent = p.name;
-        document.getElementById('ds-father').textContent = p.fatherName;
-        document.getElementById('ds-age').textContent = p.age;
-        document.getElementById('ds-area').textContent = p.area;
-        document.getElementById('ds-admission').textContent = p.admissionDate;
+
+        // Helper function to format currency
+        const formatCurr = (amount) => {
+          if (!amount) return 'PKR 0';
+          const num = parseInt(amount) || 0;
+          return `PKR ${num.toLocaleString('en-US')}`;
+        };
+
+        // Populate header
+        document.getElementById('ds-name').textContent = p.name || '';
+        document.getElementById('ds-father').textContent = p.fatherName || '';
+        document.getElementById('ds-age').textContent = p.age || '';
+        document.getElementById('ds-area').textContent = p.area || '';
+        document.getElementById('ds-admission').textContent = p.admissionDate || '';
+
+        // Parse monthly fee (remove commas if present)
+        const monthlyFee = parseInt(String(p.monthlyFee || '0').replace(/,/g, '')) || 0;
+        const laundryAmount = p.laundryStatus ? parseInt(p.laundryAmount) || 0 : 0;
+        const canteenTotal = parseInt(p.canteenTotal || 0) || 0;
+        const totalCharges = monthlyFee + laundryAmount + canteenTotal;
+
+        // Populate charges (showing in first month column, leaving second blank for manual entry)
+        document.getElementById('ds-fee-col1').textContent = formatCurr(monthlyFee);
+        document.getElementById('ds-fee-col2').textContent = '';
+
+        document.getElementById('ds-laundry-col1').textContent = p.laundryStatus
+          ? formatCurr(laundryAmount)
+          : '';
+        document.getElementById('ds-laundry-col2').textContent = '';
+
+        document.getElementById('ds-canteen-col1').textContent = formatCurr(canteenTotal);
+        document.getElementById('ds-canteen-col2').textContent = '';
+
+        // Populate total
+        document.getElementById('ds-total-col1').textContent = formatCurr(totalCharges);
+        document.getElementById('ds-total-col2').textContent = '';
 
         const slip = document.getElementById('printable-discharge-slip');
         const normal = document.getElementById('printable-area');
@@ -1402,7 +1578,7 @@
           body: JSON.stringify({ patient_id: patientId, item, amount: parseInt(amount) }),
         });
         if (res.ok) {
-          alert('Sale Recorded');
+          showSuccessModal('Sale Recorded');
           renderCanteenBreakdown();
           e.target.reset();
         }
@@ -1418,7 +1594,7 @@
         users.forEach((u) => {
           const delBtn =
             u.username !== 'ImranSaab'
-              ? `<button class="text-red-400" onclick="deleteUser('${u._id}')"><i class="fas fa-trash"></i></button>`
+              ? `<button class="text-red-500 hover:text-red-700 transition" onclick="deleteUser('${u._id}')"><i class="fas fa-trash"></i></button>`
               : '';
           tbody.innerHTML += `<tr class="hover:bg-gray-50 border-b"><td class="px-6 py-4 whitespace-nowrap">${u.name}</td><td class="px-6 py-4 whitespace-nowrap">${u.username}</td><td class="px-6 py-4 whitespace-nowrap">${u.role}</td><td class="px-6 py-4">${delBtn}</td></tr>`;
         });
@@ -1440,10 +1616,10 @@
         f.reset();
       };
       window.deleteUser = async function (id) {
-        if (confirm('Delete user?')) {
-          await fetch(`/api/users/${id}`, { method: 'DELETE' });
-          renderUserManagement();
-        }
+        const confirmed = await showConfirmModal('Delete user?');
+        if (!confirmed) return;
+        await fetch(`/api/users/${id}`, { method: 'DELETE' });
+        renderUserManagement();
       };
 
       // --- RECORDS ---
@@ -1703,8 +1879,10 @@
           </div>
 
           <div
+            id="dash-income-card"
             class="kpi-card kpi-accent-sky flex-1 min-w-xs cursor-pointer hover:shadow-lg transition-all"
             onclick="window.navigateTo('expenses-view')"
+            style="display: none"
           >
             <div class="flex items-start justify-between">
               <div>
@@ -1716,8 +1894,10 @@
           </div>
 
           <div
+            id="dash-canteen-card"
             class="kpi-card kpi-accent-forest flex-1 min-w-xs cursor-pointer hover:shadow-lg transition-all"
             onclick="window.navigateTo('canteen-view')"
+            style="display: none"
           >
             <div class="flex items-start justify-between">
               <div>
@@ -1734,7 +1914,11 @@
         </div>
 
         <!-- Call & Meeting Tracker Section -->
-        <div class="mt-10 pt-10 border-t border-emerald-100">
+        <div
+          id="dash-call-meeting-section"
+          class="mt-10 pt-10 border-t border-emerald-100"
+          style="display: none"
+        >
           <div class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
               <h3 class="text-2xl font-bold text-green-900">Call & Meeting Tracker</h3>
@@ -1905,19 +2089,22 @@
         <h2 class="text-xl md:text-2xl font-bold mb-6 text-green-800">
           <i class="fas fa-file-invoice-dollar mr-2"></i>Accounts & Discharge
         </h2>
-        <div class="bg-white rounded-lg shadow overflow-x-auto">
-          <table class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gray-800 text-white">
+        <div
+          class="kpi-card overflow-hidden"
+          style="padding: 0; border-color: rgba(16, 185, 129, 0.2)"
+        >
+          <table class="min-w-full divide-y divide-emerald-100">
+            <thead class="bg-gradient-to-r from-emerald-700 to-emerald-600 text-white">
               <tr>
-                <th class="px-6 py-3 text-left whitespace-nowrap">Patient Name</th>
-                <th class="px-6 py-3 text-left whitespace-nowrap">Father Name</th>
-                <th class="px-6 py-3 text-left whitespace-nowrap">Admission</th>
-                <th class="px-6 py-3 text-left whitespace-nowrap">Monthly Fee</th>
-                <th class="px-6 py-3 text-left whitespace-nowrap">Canteen Total</th>
-                <th class="px-6 py-3 text-left whitespace-nowrap">Actions</th>
+                <th class="px-6 py-3 text-left whitespace-nowrap font-semibold">Patient Name</th>
+                <th class="px-6 py-3 text-left whitespace-nowrap font-semibold">Father Name</th>
+                <th class="px-6 py-3 text-left whitespace-nowrap font-semibold">Admission</th>
+                <th class="px-6 py-3 text-left whitespace-nowrap font-semibold">Monthly Fee</th>
+                <th class="px-6 py-3 text-left whitespace-nowrap font-semibold">Canteen Total</th>
+                <th class="px-6 py-3 text-left whitespace-nowrap font-semibold">Actions</th>
               </tr>
             </thead>
-            <tbody id="accounts-table-body" class="bg-white divide-y divide-gray-200"></tbody>
+            <tbody id="accounts-table-body" class="divide-y divide-emerald-50"></tbody>
           </table>
         </div>
       </section>
@@ -1928,32 +2115,41 @@
           <div class="flex flex-col sm:flex-row gap-2">
             <button
               onclick="document.getElementById('export-modal').classList.remove('hidden')"
-              class="bg-gray-200 text-gray-700 px-4 py-2 rounded text-center"
+              class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition font-semibold shadow-md text-center"
             >
               <i class="fas fa-file-excel mr-2"></i>Export
             </button>
             <button
               id="add-new-patient-btn"
               onclick="openNewAdmissionModal()"
-              class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 text-center"
+              class="bg-emerald-600 text-white px-4 py-2 rounded hover:bg-emerald-700 transition font-semibold shadow-md text-center"
             >
               <i class="fas fa-plus mr-2"></i>New Admission
             </button>
           </div>
         </div>
-        <div class="bg-white rounded shadow overflow-x-auto">
-          <table class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gray-50">
-              <tr>
-                <th class="px-6 py-3 text-left whitespace-nowrap">Name</th>
-                <th class="px-6 py-3 text-left whitespace-nowrap">ID No</th>
-                <th class="px-6 py-3 text-left whitespace-nowrap">Contact</th>
-                <th class="px-6 py-3 text-left whitespace-nowrap">Fee</th>
-                <th class="px-6 py-3 text-center whitespace-nowrap">Status</th>
-                <th class="px-6 py-3 text-right whitespace-nowrap">Actions</th>
+        <div
+          class="kpi-card overflow-hidden"
+          style="padding: 0; border-color: rgba(16, 185, 129, 0.2)"
+        >
+          <table class="min-w-full divide-y divide-emerald-100">
+            <thead class="bg-gradient-to-r from-emerald-700 to-emerald-600 text-white">
+              <tr id="patients-table-headers">
+                <th class="px-6 py-3 text-left whitespace-nowrap font-semibold">Name</th>
+                <th id="header-id" class="px-6 py-3 text-left whitespace-nowrap font-semibold">
+                  ID No
+                </th>
+                <th id="header-contact" class="px-6 py-3 text-left whitespace-nowrap font-semibold">
+                  Contact
+                </th>
+                <th id="header-fee" class="px-6 py-3 text-left whitespace-nowrap font-semibold">
+                  Fee
+                </th>
+                <th class="px-6 py-3 text-center whitespace-nowrap font-semibold">Status</th>
+                <th class="px-6 py-3 text-right whitespace-nowrap font-semibold">Actions</th>
               </tr>
             </thead>
-            <tbody id="patients-table-body"></tbody>
+            <tbody id="patients-table-body" class="divide-y divide-emerald-50"></tbody>
           </table>
         </div>
       </section>
@@ -2018,6 +2214,31 @@
                       class="financial-input border p-2 rounded"
                       placeholder="Canteen Allowance"
                     />
+                    <div class="md:col-span-2">
+                      <label
+                        class="flex items-center gap-3 p-3 bg-white border border-emerald-200 rounded-lg cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          id="det-laundry-status"
+                          class="financial-input w-5 h-5 text-emerald-600 border-gray-300 rounded focus:ring-2 focus:ring-emerald-500"
+                        />
+                        <span id="det-laundry-label" class="text-sm font-semibold text-gray-700"
+                          >Enable Laundry Service</span
+                        >
+                      </label>
+                    </div>
+                    <div>
+                      <label class="block text-sm font-semibold text-gray-700 mb-1"
+                        >Laundry Amount (PKR)</label
+                      >
+                      <input
+                        id="det-laundry-amount"
+                        type="number"
+                        class="financial-input border p-2 rounded w-full"
+                        placeholder="3500"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -2115,23 +2336,28 @@
                 class="w-full border p-2 mb-2 rounded"
                 placeholder="Amount"
               />
-              <button class="w-full bg-orange-600 text-white p-2 rounded">Record</button>
+              <button
+                class="w-full bg-blue-600 hover:bg-blue-700 text-white p-2 rounded transition font-semibold shadow-md"
+              >
+                Record
+              </button>
             </form>
           </div>
           <div
             id="canteen-breakdown-table-container"
-            class="col-span-2 bg-white rounded shadow overflow-x-auto"
+            class="col-span-2 kpi-card overflow-hidden"
+            style="padding: 0; border-color: rgba(16, 185, 129, 0.2)"
           >
-            <table class="min-w-full divide-y divide-gray-200">
-              <thead class="bg-gray-50">
+            <table class="min-w-full divide-y divide-emerald-100">
+              <thead class="bg-gradient-to-r from-emerald-700 to-emerald-600 text-white">
                 <tr>
-                  <th class="px-6 py-3 text-left whitespace-nowrap">Patient</th>
-                  <th class="px-6 py-3 whitespace-nowrap">Allowance</th>
-                  <th class="px-6 py-3 whitespace-nowrap">Sales</th>
-                  <th class="px-6 py-3 whitespace-nowrap">Balance</th>
+                  <th class="px-6 py-3 text-left whitespace-nowrap font-semibold">Patient</th>
+                  <th class="px-6 py-3 whitespace-nowrap font-semibold">Allowance</th>
+                  <th class="px-6 py-3 whitespace-nowrap font-semibold">Sales</th>
+                  <th class="px-6 py-3 whitespace-nowrap font-semibold">Balance</th>
                 </tr>
               </thead>
-              <tbody id="canteen-breakdown-body"></tbody>
+              <tbody id="canteen-breakdown-body" class="divide-y divide-emerald-50"></tbody>
             </table>
           </div>
         </div>
@@ -2168,20 +2394,27 @@
                 <option value="Psychologist">Psychologist</option>
                 <option value="Canteen">Canteen</option>
               </select>
-              <button class="w-full bg-blue-600 text-white p-2 rounded">Create</button>
+              <button
+                class="w-full bg-blue-600 hover:bg-blue-700 text-white p-2 rounded transition font-semibold shadow-md"
+              >
+                Create
+              </button>
             </form>
           </div>
-          <div class="col-span-2 bg-white rounded shadow overflow-x-auto">
-            <table class="min-w-full">
-              <thead class="bg-gray-50">
+          <div
+            class="col-span-2 kpi-card overflow-hidden"
+            style="padding: 0; border-color: rgba(16, 185, 129, 0.2)"
+          >
+            <table class="min-w-full divide-y divide-emerald-100">
+              <thead class="bg-gradient-to-r from-emerald-700 to-emerald-600 text-white">
                 <tr>
-                  <th class="p-4 text-left whitespace-nowrap">Name</th>
-                  <th class="p-4 text-left whitespace-nowrap">User</th>
-                  <th class="p-4 text-left whitespace-nowrap">Role</th>
-                  <th class="p-4 whitespace-nowrap">Action</th>
+                  <th class="px-6 py-3 text-left whitespace-nowrap font-semibold">Name</th>
+                  <th class="px-6 py-3 text-left whitespace-nowrap font-semibold">User</th>
+                  <th class="px-6 py-3 text-left whitespace-nowrap font-semibold">Role</th>
+                  <th class="px-6 py-3 whitespace-nowrap font-semibold">Action</th>
                 </tr>
               </thead>
-              <tbody id="user-table-body"></tbody>
+              <tbody id="user-table-body" class="divide-y divide-emerald-50"></tbody>
             </table>
           </div>
         </div>
@@ -2207,21 +2440,40 @@
     </div>
     <script>
       async function downloadExcel() {
-        const res = await fetch('/api/export', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ fields: 'all' }),
-        });
-        if (res.ok) {
-          const b = await res.blob();
-          const u = window.URL.createObjectURL(b);
-          const a = document.createElement('a');
-          a.href = u;
-          a.download = 'patients.xlsx';
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          document.getElementById('export-modal').classList.add('hidden');
+        try {
+          console.log('Starting Excel export...');
+          const res = await fetch('/api/export', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ fields: 'all' }),
+          });
+          console.log('Export response status:', res.status);
+          console.log('Export response headers:', {
+            contentType: res.headers.get('content-type'),
+            contentLength: res.headers.get('content-length'),
+          });
+
+          if (res.ok) {
+            const b = await res.blob();
+            console.log('Received blob, size:', b.size);
+            const u = window.URL.createObjectURL(b);
+            const a = document.createElement('a');
+            a.href = u;
+            a.download = 'patients.xlsx';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(u);
+            document.getElementById('export-modal').classList.add('hidden');
+            console.log('Export successful!');
+          } else {
+            const errorData = await res.json();
+            console.error('Export error response:', errorData);
+            showSuccessModal('Export failed: ' + (errorData.error || 'Unknown error'), true);
+          }
+        } catch (error) {
+          console.error('Export catch error:', error);
+          showSuccessModal('Export error: ' + error.message, true);
         }
       }
     </script>
@@ -2351,6 +2603,37 @@
                 value="3000"
               />
             </div>
+
+            <div class="md:col-span-2">
+              <div
+                class="flex items-center gap-3 p-3 bg-emerald-50 border border-emerald-200 rounded-lg"
+              >
+                <input
+                  type="checkbox"
+                  id="new-patient-laundry-status"
+                  class="w-5 h-5 text-emerald-600 border-gray-300 rounded focus:ring-2 focus:ring-emerald-500 cursor-pointer"
+                />
+                <label for="new-patient-laundry-status" class="flex-1 cursor-pointer">
+                  <span class="text-sm font-semibold text-gray-700">Enable Laundry Service</span>
+                  <p class="text-xs text-gray-600 mt-0.5">
+                    If checked, laundry fee will be set to PKR 3,500 (can be changed later)
+                  </p>
+                </label>
+              </div>
+            </div>
+
+            <div id="laundry-amount-container" class="hidden">
+              <label class="block text-sm font-semibold text-gray-700 mb-1"
+                >Laundry Amount (PKR)</label
+              >
+              <input
+                type="number"
+                id="new-patient-laundry-amount"
+                class="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                placeholder="3500"
+                value="3500"
+              />
+            </div>
           </div>
 
           <div class="flex gap-3 mt-6">
@@ -2425,6 +2708,36 @@
         >
           OK
         </button>
+      </div>
+    </div>
+
+    <div
+      id="confirm-modal"
+      class="fixed inset-0 bg-gray-900 bg-opacity-50 hidden flex items-center justify-center z-50"
+    >
+      <div
+        class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md mx-4 text-center transform transition-all"
+      >
+        <div class="mb-4">
+          <i class="fas fa-question-circle text-6xl text-blue-500"></i>
+        </div>
+        <p id="confirm-message" class="text-xl font-semibold text-gray-800 mb-6">Are you sure?</p>
+        <div class="flex gap-3 justify-center">
+          <button
+            id="confirm-cancel-btn"
+            onclick="window.confirmCallback(false)"
+            class="bg-gray-500 text-white px-6 py-2 rounded-lg font-semibold hover:bg-gray-600 transition"
+          >
+            Cancel
+          </button>
+          <button
+            id="confirm-ok-btn"
+            onclick="window.confirmCallback(true)"
+            class="bg-blue-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-blue-700 transition"
+          >
+            Confirm
+          </button>
+        </div>
       </div>
     </div>
 
@@ -2646,16 +2959,38 @@
           }),
         });
         if (res.ok) {
-          alert('Password Updated');
+          showSuccessModal('Password Updated');
           f.reset();
           document.getElementById('password-modal').classList.add('hidden');
         } else {
-          alert('Error');
+          showSuccessModal('Error', true);
         }
       }
     </script>
 
     <div id="printable-discharge-slip">
+      <div
+        style="
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin-bottom: 20px;
+          gap: 15px;
+          border-bottom: 2px solid #10b981;
+          padding-bottom: 15px;
+        "
+      >
+        <i class="fas fa-brain" style="font-size: 40px; color: #10b981"></i>
+        <div style="text-align: center">
+          <div style="font-size: 24px; font-weight: bold; color: #10b981">PRO</div>
+          <div style="font-size: 14px; font-weight: bold; color: #059669">
+            PAKISTAN RECOVERY OASIS
+          </div>
+          <div style="font-size: 12px; color: #666">
+            Addiction Treatment & Psychological Services
+          </div>
+        </div>
+      </div>
       <div class="discharge-header">
         <p><strong>Patient Name:</strong> <span id="ds-name"></span></p>
         <p><strong>Father/Guardian Name:</strong> <span id="ds-father"></span></p>
@@ -2680,9 +3015,15 @@
             <td></td>
           </tr>
           <tr style="height: 40px">
+            <td>Monthly Fee</td>
+            <td id="ds-fee-col1"></td>
+            <td id="ds-fee-col2"></td>
+            <td></td>
+          </tr>
+          <tr style="height: 40px">
             <td>Laundry</td>
-            <td></td>
-            <td></td>
+            <td id="ds-laundry-col1"></td>
+            <td id="ds-laundry-col2"></td>
             <td></td>
           </tr>
           <tr style="height: 40px">
@@ -2693,8 +3034,8 @@
           </tr>
           <tr style="height: 40px">
             <td>Canteen</td>
-            <td></td>
-            <td></td>
+            <td id="ds-canteen-col1"></td>
+            <td id="ds-canteen-col2"></td>
             <td></td>
           </tr>
           <tr style="height: 40px">
@@ -2711,8 +3052,8 @@
           </tr>
           <tr style="height: 40px; background-color: #f9f9f9">
             <td><strong>Total</strong></td>
-            <td></td>
-            <td></td>
+            <td id="ds-total-col1"></td>
+            <td id="ds-total-col2"></td>
             <td></td>
           </tr>
           <tr style="height: 40px">

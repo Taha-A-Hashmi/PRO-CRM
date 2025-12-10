@@ -336,6 +336,14 @@ def add_patient():
         data['notes'] = [] # General Notes (Legacy)
         data['monthlyFee'] = data.get('monthlyFee', '0')
         data['monthlyAllowance'] = data.get('monthlyAllowance', '3000') # Default allowance
+        
+        # Laundry fields
+        data['laundryStatus'] = data.get('laundryStatus', False)  # Boolean: whether laundry service is enabled
+        if data['laundryStatus']:
+            data['laundryAmount'] = int(data.get('laundryAmount', 3500))  # Default 3500 if enabled
+        else:
+            data['laundryAmount'] = 0  # 0 if not enabled
+        
         result = mongo.db.patients.insert_one(data)
         return jsonify({"message": "Success", "id": str(result.inserted_id)}), 201
     except Exception as e:
@@ -349,6 +357,18 @@ def update_patient(id):
     try:
         data = request.json
         if '_id' in data: del data['_id']
+        
+        # Only Admin can modify sensitive/financial fields
+        current_user = session.get('user')
+        if current_user.get('role') != 'Admin':
+            # Remove sensitive fields for non-admin users
+            sensitive_fields = ['monthlyFee', 'monthlyAllowance', 'laundryStatus', 
+                              'laundryAmount', 'cnic', 'contactNo', 'guardianName', 
+                              'relation', 'address']
+            for field in sensitive_fields:
+                if field in data:
+                    del data[field]
+        
         mongo.db.patients.update_one({'_id': ObjectId(id)}, {'$set': data})
         return jsonify({"message": "Updated"})
     except Exception as e:
@@ -680,15 +700,19 @@ def expenses_summary():
 # --- EXPORT ROUTE (No change, retained for functionality) ---
 
 @app.route('/api/export', methods=['POST'])
-@role_required(['Admin'])
+@role_required(['Admin', 'Doctor', 'Psychologist'])
 def export_patients():
     if not check_db(): return jsonify({"error": "Database error"}), 500
     try:
         req_data = request.get_json() or {}
         selected_fields = req_data.get('fields', 'all')
+        current_user = session.get('user') or {}
+        is_admin = current_user.get('role') == 'Admin'
+        print(f"Export request from user: {current_user.get('username')}, is_admin: {is_admin}")
         
         cursor = mongo.db.patients.find()
         patients_list = list(cursor)
+        print(f"Found {len(patients_list)} patients")
         
         if not patients_list:
             return jsonify({"error": "No patients found"}), 404
@@ -696,28 +720,33 @@ def export_patients():
         # Prepare Data (Ensure new fields are included)
         export_data = []
         for p in patients_list:
+            # Convert ObjectId to string
+            patient_id = str(p.get('_id', '')) if '_id' in p else ''
+            
             row = {
                 'name': p.get('name', ''),
                 'fatherName': p.get('fatherName', ''),
                 'admissionDate': p.get('admissionDate', ''),
-                'idNo': p.get('idNo', ''),
+                'idNo': p.get('idNo', '') if is_admin else '',
                 'age': p.get('age', ''),
-                'cnic': p.get('cnic', ''),
-                'contactNo': p.get('contactNo', ''),
-                'address': p.get('address', ''),
+                'cnic': p.get('cnic', '') if is_admin else '',
+                'contactNo': p.get('contactNo', '') if is_admin else '',
+                'address': p.get('address', '') if is_admin else '',
                 'complaint': p.get('complaint', ''),
-                'guardianName': p.get('guardianName', ''),
-                'relation': p.get('relation', ''),
+                'guardianName': p.get('guardianName', '') if is_admin else '',
+                'relation': p.get('relation', '') if is_admin else '',
                 'drugProblem': p.get('drugProblem', ''),
                 'maritalStatus': p.get('maritalStatus', ''),
                 'prevAdmissions': p.get('prevAdmissions', ''),
-                'monthlyFee': p.get('monthlyFee', ''),
-                'monthlyAllowance': p.get('monthlyAllowance', ''),
+                'monthlyFee': p.get('monthlyFee', '') if is_admin else '',
+                'monthlyAllowance': p.get('monthlyAllowance', '') if is_admin else '',
                 'created_at': p.get('created_at', '')
             }
             export_data.append(row)
 
+        print(f"Prepared {len(export_data)} rows for export")
         df = pd.DataFrame(export_data)
+        print(f"Created DataFrame with columns: {list(df.columns)}")
 
         if isinstance(selected_fields, list) and len(selected_fields) > 0:
             valid_fields = [f for f in selected_fields if f in df.columns]
@@ -729,17 +758,22 @@ def export_patients():
             df.to_excel(writer, index=False, sheet_name='Patients')
         
         output.seek(0)
+        print("Excel file created successfully")
         
         return send_file(
             output, 
-            download_name="patients_export.xlsx", 
-            as_attachment=True, 
-            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name='patients_export.xlsx'
         )
-    except ImportError:
+    except ImportError as ie:
+        print(f"ImportError in export: {ie}")
         return jsonify({"error": "Missing 'openpyxl' library"}), 500
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        print(f"Error in export: {type(e).__name__}: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": f"{type(e).__name__}: {str(e)}"}), 500
 
 
 # --- NEW ACCOUNTS ROUTE (ADMIN ONLY) ---
@@ -752,7 +786,8 @@ def get_accounts_summary():
         # Get all patients
         patients = list(mongo.db.patients.find({}, {
             'name': 1, 'fatherName': 1, 'admissionDate': 1, 
-            'monthlyFee': 1, 'address': 1, 'age': 1
+            'monthlyFee': 1, 'address': 1, 'age': 1,
+            'laundryStatus': 1, 'laundryAmount': 1
         }))
         
         # Get total canteen sales per patient
@@ -773,7 +808,9 @@ def get_accounts_summary():
                 'area': p.get('address', ''), # Using address as "Area"
                 'admissionDate': p.get('admissionDate', ''),
                 'monthlyFee': p.get('monthlyFee', '0'),
-                'canteenTotal': sales_map.get(pid, 0)
+                'canteenTotal': sales_map.get(pid, 0),
+                'laundryStatus': p.get('laundryStatus', False),
+                'laundryAmount': p.get('laundryAmount', 0)
             })
         
         return jsonify(summary)
