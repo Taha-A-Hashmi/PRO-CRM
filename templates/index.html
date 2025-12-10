@@ -1500,27 +1500,19 @@
         document.getElementById('ds-area').textContent = p.area || '';
         document.getElementById('ds-admission').textContent = p.admissionDate || '';
 
-        // Parse monthly fee (remove commas if present)
-        const monthlyFee = parseInt(String(p.monthlyFee || '0').replace(/,/g, '')) || 0;
-        const laundryAmount = p.laundryStatus ? parseInt(p.laundryAmount) || 0 : 0;
-        const canteenTotal = parseInt(p.canteenTotal || 0) || 0;
-        const totalCharges = monthlyFee + laundryAmount + canteenTotal;
-
-        // Populate charges (showing in first month column, leaving second blank for manual entry)
-        document.getElementById('ds-fee-col1').textContent = formatCurr(monthlyFee);
-        document.getElementById('ds-fee-col2').textContent = '';
-
-        document.getElementById('ds-laundry-col1').textContent = p.laundryStatus
-          ? formatCurr(laundryAmount)
-          : '';
+        // Keep all charges empty - don't display system data
+        document.getElementById('ds-laundry-col1').textContent = '';
         document.getElementById('ds-laundry-col2').textContent = '';
+        document.getElementById('ds-laundry-col3').textContent = '';
 
-        document.getElementById('ds-canteen-col1').textContent = formatCurr(canteenTotal);
+        document.getElementById('ds-canteen-col1').textContent = '';
         document.getElementById('ds-canteen-col2').textContent = '';
+        document.getElementById('ds-canteen-col3').textContent = '';
 
-        // Populate total
-        document.getElementById('ds-total-col1').textContent = formatCurr(totalCharges);
+        // Populate total columns (all empty)
+        document.getElementById('ds-total-col1').textContent = '';
         document.getElementById('ds-total-col2').textContent = '';
+        document.getElementById('ds-total-col3').textContent = '';
 
         const slip = document.getElementById('printable-discharge-slip');
         const normal = document.getElementById('printable-area');
@@ -3429,33 +3421,24 @@
       <table class="discharge-table">
         <thead>
           <tr>
-            <th style="width: 40%; background-color: #f3f3f3">Rehab charges</th>
-            <th style="width: 25%">Month______</th>
-            <th style="width: 25%">Month______</th>
+            <th style="width: 30%; background-color: #f3f3f3">Rehab charges</th>
+            <th style="width: 20%">Month______</th>
+            <th style="width: 20%">Month______</th>
+            <th style="width: 20%">Month______</th>
             <th style="width: 10%"></th>
           </tr>
         </thead>
         <tbody>
           <tr style="height: 40px">
-            <td>Test</td>
-            <td></td>
-            <td></td>
-            <td></td>
-          </tr>
-          <tr style="height: 40px">
-            <td>Monthly Fee</td>
-            <td id="ds-fee-col1"></td>
-            <td id="ds-fee-col2"></td>
-            <td></td>
-          </tr>
-          <tr style="height: 40px">
             <td>Laundry</td>
             <td id="ds-laundry-col1"></td>
             <td id="ds-laundry-col2"></td>
+            <td id="ds-laundry-col3"></td>
             <td></td>
           </tr>
           <tr style="height: 40px">
             <td>Barber</td>
+            <td></td>
             <td></td>
             <td></td>
             <td></td>
@@ -3464,10 +3447,12 @@
             <td>Canteen</td>
             <td id="ds-canteen-col1"></td>
             <td id="ds-canteen-col2"></td>
+            <td id="ds-canteen-col3"></td>
             <td></td>
           </tr>
           <tr style="height: 40px">
             <td>Medicine</td>
+            <td></td>
             <td></td>
             <td></td>
             <td></td>
@@ -3477,11 +3462,20 @@
             <td></td>
             <td></td>
             <td></td>
+            <td></td>
+          </tr>
+          <tr style="height: 40px">
+            <td>Discount</td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
           </tr>
           <tr style="height: 40px; background-color: #f9f9f9">
             <td><strong>Total</strong></td>
             <td id="ds-total-col1"></td>
             <td id="ds-total-col2"></td>
+            <td id="ds-total-col3"></td>
             <td></td>
           </tr>
           <tr style="height: 40px">
@@ -3489,9 +3483,11 @@
             <td></td>
             <td></td>
             <td></td>
+            <td></td>
           </tr>
           <tr style="height: 40px">
             <td>Remaining</td>
+            <td></td>
             <td></td>
             <td></td>
             <td></td>
