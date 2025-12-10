@@ -174,19 +174,25 @@ def get_dashboard_metrics():
     if not check_db(): return jsonify({"error": "Database error"}), 500
     
     today = datetime.now()
+    # Start of current month
     start_of_month = today.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    # End of current month (tomorrow at 00:00 or end of month)
+    if today.month == 12:
+        end_of_month = today.replace(year=today.year + 1, month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+    else:
+        end_of_month = today.replace(month=today.month + 1, day=1, hour=0, minute=0, second=0, microsecond=0)
     
     try:
         # 1. Total Patients
         total_patients = mongo.db.patients.count_documents({})
 
-        # 2. Admissions This Month
+        # 2. Admissions This Month (from 1st to end of current month)
         admissions_this_month = mongo.db.patients.count_documents({
-            'created_at': {'$gte': start_of_month}
+            'created_at': {'$gte': start_of_month, '$lt': end_of_month}
         })
         
-        # 3. Total Income This Month (Mock: sum of Monthly Fees from active patients)
-        # Assuming monthly fee is stored as 'monthlyFee' on patient record (string, e.g., "10000")
+        # 3. Total Income This Month (sum of Monthly Fees from all active patients)
+        # Note: This is a snapshot of current fees, not historical
         active_patients = mongo.db.patients.find()
         total_income_this_month = 0
         for p in active_patients:
@@ -196,13 +202,17 @@ def get_dashboard_metrics():
             except ValueError:
                 pass # Ignore invalid fees
         
-        # 4. Total Canteen Sales This Month
+        # 4. Total Canteen Sales This Month (from 1st to end of current month)
         pipeline = [
-            {'$match': {'date': {'$gte': start_of_month}}},
+            {'$match': {'date': {'$gte': start_of_month, '$lt': end_of_month}}},
             {'$group': {'_id': None, 'total_sales': {'$sum': '$amount'}}}
         ]
         canteen_sales_result = list(mongo.db.canteen_sales.aggregate(pipeline))
         total_canteen_sales_this_month = canteen_sales_result[0]['total_sales'] if canteen_sales_result else 0
+        
+        # Debug logging
+        print(f"[Dashboard Metrics] Month range: {start_of_month} to {end_of_month}")
+        print(f"[Dashboard Metrics] Patients: {total_patients}, Admissions: {admissions_this_month}, Income: {total_income_this_month}, Canteen: {total_canteen_sales_this_month}")
         
         return jsonify({
             'totalPatients': total_patients,
@@ -212,6 +222,89 @@ def get_dashboard_metrics():
         })
     except Exception as e:
         print(f"DB Metric Error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+# DEBUG endpoint to inspect database
+@app.route('/api/debug/dashboard', methods=['GET'])
+@login_required
+def debug_dashboard():
+    """Debug endpoint to show raw data used in dashboard calculations"""
+    if not check_db(): return jsonify({"error": "Database error"}), 500
+    
+    today = datetime.now()
+    start_of_month = today.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    
+    try:
+        # Get all patients with fees
+        patients = list(mongo.db.patients.find())
+        patient_data = []
+        for p in patients:
+            try:
+                fee = int(p.get('monthlyFee', '0').replace(',', ''))
+                patient_data.append({
+                    'name': p.get('name'),
+                    'monthlyFee_raw': p.get('monthlyFee'),
+                    'monthlyFee_parsed': fee
+                })
+            except ValueError:
+                patient_data.append({
+                    'name': p.get('name'),
+                    'monthlyFee_raw': p.get('monthlyFee'),
+                    'monthlyFee_parsed': 'ERROR'
+                })
+        
+        # Get canteen sales this month
+        canteen_pipeline = [
+            {'$match': {'date': {'$gte': start_of_month}}},
+            {'$group': {'_id': None, 'total': {'$sum': '$amount'}, 'count': {'$sum': 1}}}
+        ]
+        canteen_data = list(mongo.db.canteen_sales.aggregate(canteen_pipeline))
+        
+        # Get all canteen sales for context
+        all_canteen = list(mongo.db.canteen_sales.find().sort('date', -1).limit(5))
+        canteen_sample = [{
+            'date': str(c.get('date')),
+            'amount': c.get('amount'),
+            'item': c.get('item')
+        } for c in all_canteen]
+        
+        return jsonify({
+            'currentMonth': f"{today.year}-{today.month:02d}",
+            'startOfMonth': str(start_of_month),
+            'totalPatients': len(patients),
+            'patientsWithFees': patient_data,
+            'canteenThisMonth': canteen_data,
+            'canteenSample': canteen_sample
+        })
+    except Exception as e:
+        print(f"Debug error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/dashboard/admissions', methods=['GET'])
+@login_required
+def get_month_admissions():
+    """Return detailed admissions for the current month."""
+    if not check_db():
+        return jsonify({"error": "Database error"}), 500
+
+    today = datetime.now()
+    start_of_month = today.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+    try:
+        cursor = mongo.db.patients.find({'created_at': {'$gte': start_of_month}})
+        admissions = []
+        for p in cursor:
+            admissions.append({
+                'id': str(p.get('_id')),
+                'name': p.get('name', ''),
+                'admissionDate': p.get('admissionDate', ''),
+                'created_at': p.get('created_at').isoformat() if p.get('created_at') else ''
+            })
+        return jsonify(admissions)
+    except Exception as e:
+        print(f"Admissions list error: {e}")
         return jsonify({"error": str(e)}), 500
 
 # --- PATIENT API UPDATES ---
@@ -412,6 +505,178 @@ def get_canteen_breakdown():
         print(f"Canteen Breakdown Error: {e}")
         return jsonify({"error": str(e)}), 500
 
+
+# --- EXPENSES APIs ---
+
+@app.route('/api/expenses', methods=['GET'])
+@login_required
+def list_expenses():
+    if not check_db():
+        return jsonify({"error": "Database error"}), 500
+    try:
+        cursor = mongo.db.expenses.find().sort('date', -1)
+        expenses = []
+        for e in cursor:
+            expenses.append({
+                'id': str(e.get('_id')),
+                'type': e.get('type', 'outgoing'),
+                'amount': e.get('amount', 0),
+                'category': e.get('category', ''),
+                'note': e.get('note', ''),
+                'date': e.get('date').isoformat() if e.get('date') else '',
+                'recorded_by': e.get('recorded_by', ''),
+                'auto': False
+            })
+
+        # Automated income entries (not stored, just surfaced)
+        try:
+            # Monthly fees sum (all patients)
+            patients = mongo.db.patients.find()
+            total_fees = 0
+            for p in patients:
+                try:
+                    total_fees += int(str(p.get('monthlyFee', '0')).replace(',', ''))
+                except ValueError:
+                    pass
+
+            # Canteen sales sum (all time or could be month? align with summary -> month)
+            today = datetime.now()
+            start_of_month = today.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            pipeline = [
+                {'$match': {'date': {'$gte': start_of_month}}},
+                {'$group': {'_id': None, 'total_sales': {'$sum': '$amount'}}}
+            ]
+            sales_result = list(mongo.db.canteen_sales.aggregate(pipeline))
+            total_canteen = sales_result[0]['total_sales'] if sales_result else 0
+
+            today_iso = datetime.now().date().isoformat()
+            expenses.insert(0, {
+                'id': 'auto-canteen',
+                'type': 'incoming',
+                'amount': total_canteen,
+                'category': 'Canteen Sales (auto)',
+                'note': 'Automatically calculated from canteen sales this month',
+                'date': today_iso,
+                'recorded_by': 'system',
+                'auto': True
+            })
+            expenses.insert(0, {
+                'id': 'auto-fees',
+                'type': 'incoming',
+                'amount': total_fees,
+                'category': 'Monthly Fees (auto)',
+                'note': 'Automatically calculated from patient monthly fees',
+                'date': today_iso,
+                'recorded_by': 'system',
+                'auto': True
+            })
+        except Exception as e:
+            print(f"Auto income calc error: {e}")
+
+        return jsonify(expenses)
+    except Exception as e:
+        print(f"Expenses list error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/expenses', methods=['POST'])
+@role_required(['Admin'])
+def add_expense():
+    if not check_db():
+        return jsonify({"error": "Database error"}), 500
+    data = request.json or {}
+    required = ['type', 'amount', 'category']
+    if not all(k in data for k in required):
+        return jsonify({"error": "Missing fields"}), 400
+    try:
+        amount = int(str(data.get('amount', 0)).replace(',', ''))
+    except ValueError:
+        return jsonify({"error": "Amount must be a number"}), 400
+
+    expense = {
+        'type': data.get('type', 'outgoing'),
+        'amount': amount,
+        'category': data.get('category', ''),
+        'note': data.get('note', ''),
+        'date': datetime.fromisoformat(data.get('date')) if data.get('date') else datetime.now(),
+        'recorded_by': session.get('username', 'System'),
+        'created_at': datetime.now()
+    }
+    try:
+        result = mongo.db.expenses.insert_one(expense)
+        return jsonify({"message": "Expense saved", "id": str(result.inserted_id)}), 201
+    except Exception as e:
+        print(f"Add expense error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/expenses/<id>', methods=['DELETE'])
+@role_required(['Admin'])
+def delete_expense(id):
+    if not check_db():
+        return jsonify({"error": "Database error"}), 500
+    try:
+        result = mongo.db.expenses.delete_one({'_id': ObjectId(id)})
+        if result.deleted_count:
+            return jsonify({"message": "Expense deleted"})
+        return jsonify({"error": "Expense not found"}), 404
+    except Exception as e:
+        print(f"Delete expense error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/expenses/summary', methods=['GET'])
+@login_required
+def expenses_summary():
+    if not check_db():
+        return jsonify({"error": "Database error"}), 500
+
+    today = datetime.now()
+    start_of_month = today.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    try:
+        pipeline = [
+            {'$match': {'date': {'$gte': start_of_month}}},
+            {'$group': {'_id': '$type', 'total': {'$sum': '$amount'}}}
+        ]
+        summary_data = list(mongo.db.expenses.aggregate(pipeline))
+        incoming = 0
+        outgoing = 0
+        for item in summary_data:
+            if item['_id'] == 'incoming':
+                incoming = item['total']
+            elif item['_id'] == 'outgoing':
+                outgoing = item['total']
+
+        # Add automated incoming: monthly fees + canteen sales (month)
+        # Monthly fees
+        patients = mongo.db.patients.find()
+        auto_fees = 0
+        for p in patients:
+            try:
+                auto_fees += int(str(p.get('monthlyFee', '0')).replace(',', ''))
+            except ValueError:
+                pass
+        # Canteen sales this month
+        pipeline_sales = [
+            {'$match': {'date': {'$gte': start_of_month}}},
+            {'$group': {'_id': None, 'total_sales': {'$sum': '$amount'}}}
+        ]
+        sales_result = list(mongo.db.canteen_sales.aggregate(pipeline_sales))
+        auto_canteen = sales_result[0]['total_sales'] if sales_result else 0
+
+        incoming += auto_fees + auto_canteen
+
+        return jsonify({
+            'incoming': incoming,
+            'outgoing': outgoing,
+            'net': incoming - outgoing,
+            'autoFees': auto_fees,
+            'autoCanteen': auto_canteen
+        })
+    except Exception as e:
+        print(f"Expenses summary error: {e}")
+        return jsonify({"error": str(e)}), 500
+
 # --- EXPORT ROUTE (No change, retained for functionality) ---
 
 @app.route('/api/export', methods=['POST'])
@@ -513,6 +778,136 @@ def get_accounts_summary():
         
         return jsonify(summary)
     except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# --- CALL & MEETING TRACKING APIs ---
+
+@app.route('/api/call_meeting_tracker', methods=['GET'])
+@login_required
+def get_call_meeting_data():
+    """Get all call and meeting data for the month"""
+    if not check_db(): return jsonify({"error": "Database error"}), 500
+    
+    try:
+        today = datetime.now()
+        year = today.year
+        month = today.month
+        
+        # Fetch all records for the current month
+        records_cursor = mongo.db.call_meeting_tracker.find({
+            'year': year,
+            'month': month
+        }).sort('day', 1)
+        
+        records = []
+        for r in records_cursor:
+            r['_id'] = str(r['_id'])
+            records.append(r)
+        
+        return jsonify(records)
+    except Exception as e:
+        print(f"Call/Meeting Fetch Error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/call_meeting_tracker', methods=['POST'])
+@role_required(['Admin'])
+def add_call_meeting_entry():
+    """Add or update a call/meeting entry"""
+    if not check_db(): return jsonify({"error": "Database error"}), 500
+    
+    data = request.json
+    if not all(k in data for k in ['name', 'day', 'month', 'year', 'type', 'date_of_admission']):
+        return jsonify({"error": "Missing fields"}), 400
+    
+    try:
+        entry = {
+            'name': data['name'],
+            'day': int(data['day']),
+            'month': int(data['month']),
+            'year': int(data['year']),
+            'type': data['type'],  # 'Call', 'Meeting', or 'Text'
+            'date_of_admission': data['date_of_admission'],
+            'recorded_by': session.get('username', 'Admin'),
+            'created_at': datetime.now()
+        }
+        
+        # Check if entry already exists for this person on this day/month/year
+        existing = mongo.db.call_meeting_tracker.find_one({
+            'name': data['name'],
+            'day': int(data['day']),
+            'month': int(data['month']),
+            'year': int(data['year'])
+        })
+        
+        if existing:
+            # Update existing entry
+            mongo.db.call_meeting_tracker.update_one({'_id': existing['_id']}, {'$set': entry})
+            return jsonify({"message": "Entry updated", "id": str(existing['_id'])}), 200
+        else:
+            # Create new entry
+            result = mongo.db.call_meeting_tracker.insert_one(entry)
+            return jsonify({"message": "Entry added", "id": str(result.inserted_id)}), 201
+    except Exception as e:
+        print(f"Call/Meeting Add Error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/call_meeting_tracker/<id>', methods=['DELETE'])
+@role_required(['Admin'])
+def delete_call_meeting_entry(id):
+    """Delete a call/meeting entry"""
+    if not check_db(): return jsonify({"error": "Database error"}), 500
+    
+    try:
+        result = mongo.db.call_meeting_tracker.delete_one({'_id': ObjectId(id)})
+        if result.deleted_count > 0:
+            return jsonify({"message": "Entry deleted"}), 200
+        else:
+            return jsonify({"error": "Entry not found"}), 404
+    except Exception as e:
+        print(f"Call/Meeting Delete Error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/call_meeting_tracker/summary/<int:month>/<int:year>', methods=['GET'])
+@login_required
+def get_call_meeting_summary(month, year):
+    """Get summary of calls and meetings for the month"""
+    if not check_db(): return jsonify({"error": "Database error"}), 500
+    
+    try:
+        # Get all records for the month
+        records_cursor = mongo.db.call_meeting_tracker.find({
+            'year': year,
+            'month': month
+        })
+        
+        # Count by type and by person
+        call_count = 0
+        meeting_count = 0
+        text_count = 0
+        by_person = {}
+        
+        for r in records_cursor:
+            record_type = r.get('type', 'Unknown')
+            if record_type == 'Call':
+                call_count += 1
+            elif record_type == 'Meeting':
+                meeting_count += 1
+            elif record_type == 'Text':
+                text_count += 1
+            
+            person = r.get('name', 'Unknown')
+            if person not in by_person:
+                by_person[person] = {'Call': 0, 'Meeting': 0, 'Text': 0}
+            by_person[person][record_type] = by_person[person].get(record_type, 0) + 1
+        
+        return jsonify({
+            'totalCalls': call_count,
+            'totalMeetings': meeting_count,
+            'totalTexts': text_count,
+            'byPerson': by_person
+        })
+    except Exception as e:
+        print(f"Call/Meeting Summary Error: {e}")
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
