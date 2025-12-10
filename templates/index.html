@@ -1500,27 +1500,19 @@
         document.getElementById('ds-area').textContent = p.area || '';
         document.getElementById('ds-admission').textContent = p.admissionDate || '';
 
-        // Parse monthly fee (remove commas if present)
-        const monthlyFee = parseInt(String(p.monthlyFee || '0').replace(/,/g, '')) || 0;
-        const laundryAmount = p.laundryStatus ? parseInt(p.laundryAmount) || 0 : 0;
-        const canteenTotal = parseInt(p.canteenTotal || 0) || 0;
-        const totalCharges = monthlyFee + laundryAmount + canteenTotal;
-
-        // Populate charges (showing in first month column, leaving second blank for manual entry)
-        document.getElementById('ds-fee-col1').textContent = formatCurr(monthlyFee);
-        document.getElementById('ds-fee-col2').textContent = '';
-
-        document.getElementById('ds-laundry-col1').textContent = p.laundryStatus
-          ? formatCurr(laundryAmount)
-          : '';
+        // Keep all charges empty - don't display system data
+        document.getElementById('ds-laundry-col1').textContent = '';
         document.getElementById('ds-laundry-col2').textContent = '';
+        document.getElementById('ds-laundry-col3').textContent = '';
 
-        document.getElementById('ds-canteen-col1').textContent = formatCurr(canteenTotal);
+        document.getElementById('ds-canteen-col1').textContent = '';
         document.getElementById('ds-canteen-col2').textContent = '';
+        document.getElementById('ds-canteen-col3').textContent = '';
 
-        // Populate total
-        document.getElementById('ds-total-col1').textContent = formatCurr(totalCharges);
+        // Populate total columns (all empty)
+        document.getElementById('ds-total-col1').textContent = '';
         document.getElementById('ds-total-col2').textContent = '';
+        document.getElementById('ds-total-col3').textContent = '';
 
         const slip = document.getElementById('printable-discharge-slip');
         const normal = document.getElementById('printable-area');
@@ -1629,18 +1621,18 @@
       };
 
       // --- UTILITY BILLS ---
-      
+
       async function renderUtilityBills() {
         if (currentUser.role !== 'Admin') return;
-        
+
         try {
           const res = await fetch('/api/utility_bills');
           const bills = await res.json();
-          
+
           const grid = document.getElementById('bills-grid');
           const emptyState = document.getElementById('bills-empty-state');
           const totalDisplay = document.getElementById('bill-total-display');
-          
+
           grid.innerHTML = '';
           let total = 0;
 
@@ -1652,20 +1644,30 @@
             emptyState.classList.add('hidden');
           }
 
-          bills.forEach(b => {
+          bills.forEach((b) => {
             total += b.amount;
-            
+
             // Icon selection based on type
             let iconClass = 'fa-file-invoice';
             let colorClass = 'bg-gray-100 text-gray-600';
-            
-            if(b.type === 'Electricity') { iconClass = 'fa-bolt'; colorClass = 'bg-yellow-100 text-yellow-600'; }
-            else if(b.type === 'Gas') { iconClass = 'fa-fire'; colorClass = 'bg-orange-100 text-orange-600'; }
-            else if(b.type === 'Water') { iconClass = 'fa-tint'; colorClass = 'bg-blue-100 text-blue-600'; }
-            else if(b.type === 'Internet') { iconClass = 'fa-wifi'; colorClass = 'bg-indigo-100 text-indigo-600'; }
+
+            if (b.type === 'Electricity') {
+              iconClass = 'fa-bolt';
+              colorClass = 'bg-yellow-100 text-yellow-600';
+            } else if (b.type === 'Gas') {
+              iconClass = 'fa-fire';
+              colorClass = 'bg-orange-100 text-orange-600';
+            } else if (b.type === 'Water') {
+              iconClass = 'fa-tint';
+              colorClass = 'bg-blue-100 text-blue-600';
+            } else if (b.type === 'Internet') {
+              iconClass = 'fa-wifi';
+              colorClass = 'bg-indigo-100 text-indigo-600';
+            }
 
             const card = document.createElement('div');
-            card.className = "bg-white p-5 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition relative group";
+            card.className =
+              'bg-white p-5 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition relative group';
             card.innerHTML = `
               <div class="flex justify-between items-start mb-3">
                 <div class="flex items-center gap-3">
@@ -1678,12 +1680,16 @@
                   </div>
                 </div>
                 <div class="text-right">
-                  <div class="font-extrabold text-lg text-gray-800">${formatCurrency(b.amount)}</div>
+                  <div class="font-extrabold text-lg text-gray-800">${formatCurrency(
+                    b.amount
+                  )}</div>
                   <div class="text-xs font-semibold text-red-500">Due: ${b.due_date}</div>
                 </div>
               </div>
               <div class="mt-4 pt-3 border-t border-gray-100 flex justify-end">
-                <button onclick="payUtilityBill('${b.id}')" class="bg-green-50 text-green-700 hover:bg-green-600 hover:text-white px-4 py-2 rounded-lg text-sm font-bold transition flex items-center gap-2">
+                <button onclick="payUtilityBill('${
+                  b.id
+                }')" class="bg-green-50 text-green-700 hover:bg-green-600 hover:text-white px-4 py-2 rounded-lg text-sm font-bold transition flex items-center gap-2">
                   <i class="fas fa-check"></i> Mark Paid
                 </button>
               </div>
@@ -1693,9 +1699,8 @@
 
           // Update Total
           totalDisplay.innerText = formatCurrency(total);
-
         } catch (e) {
-          console.error("Bills Render Error:", e);
+          console.error('Bills Render Error:', e);
         }
       }
 
@@ -1705,16 +1710,16 @@
           type: document.getElementById('bill-type').value,
           amount: document.getElementById('bill-amount').value,
           due_date: document.getElementById('bill-due-date').value,
-          ref_no: document.getElementById('bill-ref').value
+          ref_no: document.getElementById('bill-ref').value,
         };
 
         const res = await fetch('/api/utility_bills', {
           method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify(data)
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
         });
 
-        if(res.ok) {
+        if (res.ok) {
           showSuccessModal('Bill Added Successfully');
           e.target.reset();
           renderUtilityBills();
@@ -1724,10 +1729,11 @@
       }
 
       async function payUtilityBill(id) {
-        if(!(await showConfirmModal("Mark this bill as paid? This will move it to Expenses."))) return;
+        if (!(await showConfirmModal('Mark this bill as paid? This will move it to Expenses.')))
+          return;
 
         const res = await fetch(`/api/utility_bills/${id}`, { method: 'DELETE' });
-        if(res.ok) {
+        if (res.ok) {
           showSuccessModal('Bill Paid & Recorded');
           renderUtilityBills();
         } else {
@@ -1735,62 +1741,70 @@
         }
       }
 
-
       // --- TEAM MANAGEMENT ---
       let teamData = [];
 
       async function renderTeam() {
         if (currentUser.role !== 'Admin') return;
-        
+
         try {
           const res = await fetch('/api/employees');
           const employees = await res.json();
           teamData = employees; // Store for editing
-          
+
           const tbody = document.getElementById('team-table-body');
           tbody.innerHTML = '';
 
           if (employees.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="9" class="p-6 text-center text-gray-400">No team members added yet.</td></tr>';
+            tbody.innerHTML =
+              '<tr><td colspan="9" class="p-6 text-center text-gray-400">No team members added yet.</td></tr>';
             return;
           }
 
           employees.forEach((emp, index) => {
             const tr = document.createElement('tr');
-            tr.className = "hover:bg-emerald-50/50 transition border-b border-gray-100";
+            tr.className = 'hover:bg-emerald-50/50 transition border-b border-gray-100';
             tr.innerHTML = `
               <td class="px-4 py-3 text-center text-gray-500 font-mono text-xs">${index + 1}</td>
               <td class="px-4 py-3 font-semibold text-gray-800">${emp.name}</td>
-              <td class="px-4 py-3 text-emerald-700 font-medium text-sm bg-emerald-50/30 rounded">${emp.designation}</td>
+              <td class="px-4 py-3 text-emerald-700 font-medium text-sm bg-emerald-50/30 rounded">${
+                emp.designation
+              }</td>
               <td class="px-4 py-3 text-gray-600 text-sm">${emp.pay || '-'}</td>
               <td class="px-4 py-3 text-gray-600 text-sm">${emp.advance || '-'}</td>
               <td class="px-4 py-3 text-gray-600 text-sm">${emp.duty_timings || '-'}</td>
-              <td class="px-4 py-3 text-gray-600 text-sm whitespace-nowrap">${emp.date_of_joining || '-'}</td>
+              <td class="px-4 py-3 text-gray-600 text-sm whitespace-nowrap">${
+                emp.date_of_joining || '-'
+              }</td>
               <td class="px-4 py-3 text-xs">
                 <div class="text-gray-900 font-bold">${emp.phone || ''}</div>
                 <div class="text-gray-500">${emp.cnic || ''}</div>
               </td>
               <td class="px-4 py-3 text-center whitespace-nowrap">
-                <button onclick="editEmployee('${emp.id}')" class="text-blue-600 hover:text-blue-800 p-2" title="Edit">
+                <button onclick="editEmployee('${
+                  emp.id
+                }')" class="text-blue-600 hover:text-blue-800 p-2" title="Edit">
                   <i class="fas fa-edit"></i>
                 </button>
-                <button onclick="deleteEmployee('${emp.id}')" class="text-red-500 hover:text-red-700 p-2" title="Delete">
+                <button onclick="deleteEmployee('${
+                  emp.id
+                }')" class="text-red-500 hover:text-red-700 p-2" title="Delete">
                   <i class="fas fa-trash"></i>
                 </button>
               </td>
             `;
             tbody.appendChild(tr);
           });
-
         } catch (e) {
-          console.error("Team Render Error:", e);
+          console.error('Team Render Error:', e);
         }
       }
 
       function openEmployeeModal() {
         document.getElementById('employee-form').reset();
         document.getElementById('emp-id').value = ''; // Clear ID for new entry
-        document.getElementById('emp-modal-title').innerHTML = '<i class="fas fa-user-tie mr-2"></i>Add Employee';
+        document.getElementById('emp-modal-title').innerHTML =
+          '<i class="fas fa-user-tie mr-2"></i>Add Employee';
         document.getElementById('employee-modal').classList.remove('hidden');
       }
 
@@ -1799,7 +1813,7 @@
       }
 
       function editEmployee(id) {
-        const emp = teamData.find(e => e.id === id);
+        const emp = teamData.find((e) => e.id === id);
         if (!emp) return;
 
         document.getElementById('emp-id').value = emp.id;
@@ -1812,7 +1826,8 @@
         document.getElementById('emp-cnic').value = emp.cnic;
         document.getElementById('emp-phone').value = emp.phone;
 
-        document.getElementById('emp-modal-title').innerHTML = '<i class="fas fa-edit mr-2"></i>Edit Employee';
+        document.getElementById('emp-modal-title').innerHTML =
+          '<i class="fas fa-edit mr-2"></i>Edit Employee';
         document.getElementById('employee-modal').classList.remove('hidden');
       }
 
@@ -1827,7 +1842,7 @@
           duty_timings: document.getElementById('emp-timings').value,
           date_of_joining: document.getElementById('emp-joining').value,
           cnic: document.getElementById('emp-cnic').value,
-          phone: document.getElementById('emp-phone').value
+          phone: document.getElementById('emp-phone').value,
         };
 
         let method = 'POST';
@@ -1840,11 +1855,11 @@
 
         const res = await fetch(url, {
           method: method,
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify(data)
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
         });
 
-        if(res.ok) {
+        if (res.ok) {
           showSuccessModal(id ? 'Employee Updated' : 'Employee Added');
           closeEmployeeModal();
           renderTeam();
@@ -1854,10 +1869,10 @@
       }
 
       async function deleteEmployee(id) {
-        if(!(await showConfirmModal("Remove this employee from the team?"))) return;
+        if (!(await showConfirmModal('Remove this employee from the team?'))) return;
 
         const res = await fetch(`/api/employees/${id}`, { method: 'DELETE' });
-        if(res.ok) {
+        if (res.ok) {
           showSuccessModal('Employee Removed');
           renderTeam();
         } else {
@@ -2687,9 +2702,13 @@
             </h2>
             <p class="text-sm text-gray-500">Manage pending utility payments.</p>
           </div>
-          
-          <div class="bg-red-50 border border-red-200 px-6 py-3 rounded-xl flex flex-col items-end min-w-[200px]">
-            <span class="text-xs font-bold text-red-600 uppercase tracking-wide">Total Payable</span>
+
+          <div
+            class="bg-red-50 border border-red-200 px-6 py-3 rounded-xl flex flex-col items-end min-w-[200px]"
+          >
+            <span class="text-xs font-bold text-red-600 uppercase tracking-wide"
+              >Total Payable</span
+            >
             <span id="bill-total-display" class="text-2xl font-extrabold text-red-700">PKR 0</span>
           </div>
         </div>
@@ -2699,8 +2718,14 @@
             <h3 class="font-bold text-gray-800 mb-4 border-b pb-2">Add New Bill</h3>
             <form onsubmit="addUtilityBill(event)">
               <div class="mb-3">
-                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Bill Type</label>
-                <select id="bill-type" class="w-full border bg-gray-50 p-2 rounded focus:ring-2 focus:ring-green-500" required>
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1"
+                  >Bill Type</label
+                >
+                <select
+                  id="bill-type"
+                  class="w-full border bg-gray-50 p-2 rounded focus:ring-2 focus:ring-green-500"
+                  required
+                >
                   <option value="Electricity">Electricity (WAPDA)</option>
                   <option value="Gas">Gas (SNGPL)</option>
                   <option value="Internet">Internet / PTCL</option>
@@ -2712,31 +2737,50 @@
               </div>
 
               <div class="mb-3">
-                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Amount (PKR)</label>
-                <input id="bill-amount" type="number" class="w-full border p-2 rounded" placeholder="0" required />
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1"
+                  >Amount (PKR)</label
+                >
+                <input
+                  id="bill-amount"
+                  type="number"
+                  class="w-full border p-2 rounded"
+                  placeholder="0"
+                  required
+                />
               </div>
 
               <div class="mb-3">
                 <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Due Date</label>
                 <input id="bill-due-date" type="date" class="w-full border p-2 rounded" required />
               </div>
-              
+
               <div class="mb-4">
-                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Reference No / Note</label>
-                <input id="bill-ref" type="text" class="w-full border p-2 rounded" placeholder="e.g. Ref ID or Meter No" />
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1"
+                  >Reference No / Note</label
+                >
+                <input
+                  id="bill-ref"
+                  type="text"
+                  class="w-full border p-2 rounded"
+                  placeholder="e.g. Ref ID or Meter No"
+                />
               </div>
 
-              <button class="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-bold shadow transition">
+              <button
+                class="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-bold shadow transition"
+              >
                 <i class="fas fa-plus mr-2"></i> Add Bill
               </button>
             </form>
           </div>
 
           <div class="col-span-1 lg:col-span-2">
-            <div id="bills-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              </div>
-            
-            <div id="bills-empty-state" class="hidden flex flex-col items-center justify-center py-12 text-gray-400 bg-white rounded-xl border border-dashed border-gray-300">
+            <div id="bills-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+
+            <div
+              id="bills-empty-state"
+              class="hidden flex flex-col items-center justify-center py-12 text-gray-400 bg-white rounded-xl border border-dashed border-gray-300"
+            >
               <i class="fas fa-check-circle text-4xl mb-3 text-green-200"></i>
               <p>No pending bills. Great job!</p>
             </div>
@@ -2753,94 +2797,181 @@
             <p class="text-sm text-gray-500">Manage staff details, designations, and timings.</p>
           </div>
           <div>
-            <button onclick="openEmployeeModal()" class="bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 transition font-semibold shadow-md">
+            <button
+              onclick="openEmployeeModal()"
+              class="bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 transition font-semibold shadow-md"
+            >
               <i class="fas fa-plus mr-2"></i> Add Employee
             </button>
           </div>
         </div>
 
-        <div class="kpi-card overflow-hidden" style="padding: 0; border-color: rgba(16, 185, 129, 0.2)">
+        <div
+          class="kpi-card overflow-hidden"
+          style="padding: 0; border-color: rgba(16, 185, 129, 0.2)"
+        >
           <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-emerald-100">
               <thead class="bg-gradient-to-r from-emerald-700 to-emerald-600 text-white">
                 <tr>
-                  <th class="px-4 py-3 text-center whitespace-nowrap font-semibold text-xs uppercase">S.No</th>
-                  <th class="px-4 py-3 text-left whitespace-nowrap font-semibold text-xs uppercase">Name</th>
-                  <th class="px-4 py-3 text-left whitespace-nowrap font-semibold text-xs uppercase">Designation</th>
-                  <th class="px-4 py-3 text-left whitespace-nowrap font-semibold text-xs uppercase">Pay</th>
-                  <th class="px-4 py-3 text-left whitespace-nowrap font-semibold text-xs uppercase">Advance</th>
-                  <th class="px-4 py-3 text-left whitespace-nowrap font-semibold text-xs uppercase">Duty Timings</th>
-                  <th class="px-4 py-3 text-left whitespace-nowrap font-semibold text-xs uppercase">Joining Date</th>
-                  <th class="px-4 py-3 text-left whitespace-nowrap font-semibold text-xs uppercase">Contact Info</th>
-                  <th class="px-4 py-3 text-center whitespace-nowrap font-semibold text-xs uppercase">Actions</th>
+                  <th
+                    class="px-4 py-3 text-center whitespace-nowrap font-semibold text-xs uppercase"
+                  >
+                    S.No
+                  </th>
+                  <th class="px-4 py-3 text-left whitespace-nowrap font-semibold text-xs uppercase">
+                    Name
+                  </th>
+                  <th class="px-4 py-3 text-left whitespace-nowrap font-semibold text-xs uppercase">
+                    Designation
+                  </th>
+                  <th class="px-4 py-3 text-left whitespace-nowrap font-semibold text-xs uppercase">
+                    Pay
+                  </th>
+                  <th class="px-4 py-3 text-left whitespace-nowrap font-semibold text-xs uppercase">
+                    Advance
+                  </th>
+                  <th class="px-4 py-3 text-left whitespace-nowrap font-semibold text-xs uppercase">
+                    Duty Timings
+                  </th>
+                  <th class="px-4 py-3 text-left whitespace-nowrap font-semibold text-xs uppercase">
+                    Joining Date
+                  </th>
+                  <th class="px-4 py-3 text-left whitespace-nowrap font-semibold text-xs uppercase">
+                    Contact Info
+                  </th>
+                  <th
+                    class="px-4 py-3 text-center whitespace-nowrap font-semibold text-xs uppercase"
+                  >
+                    Actions
+                  </th>
                 </tr>
               </thead>
-              <tbody id="team-table-body" class="divide-y divide-emerald-50 bg-white">
-                </tbody>
+              <tbody id="team-table-body" class="divide-y divide-emerald-50 bg-white"></tbody>
             </table>
           </div>
         </div>
       </section>
 
-      <div id="employee-modal" class="fixed inset-0 bg-gray-900 bg-opacity-50 hidden flex items-center justify-center z-50">
-        <div class="bg-white p-6 rounded-xl shadow-2xl w-full max-w-3xl mx-4 max-h-[90vh] overflow-y-auto">
+      <div
+        id="employee-modal"
+        class="fixed inset-0 bg-gray-900 bg-opacity-50 hidden flex items-center justify-center z-50"
+      >
+        <div
+          class="bg-white p-6 rounded-xl shadow-2xl w-full max-w-3xl mx-4 max-h-[90vh] overflow-y-auto"
+        >
           <div class="flex justify-between items-center mb-6">
             <h3 class="text-2xl font-bold text-green-900" id="emp-modal-title">
               <i class="fas fa-user-tie mr-2"></i>Add Employee
             </h3>
-            <button onclick="closeEmployeeModal()" class="text-gray-400 hover:text-gray-600 text-2xl">
+            <button
+              onclick="closeEmployeeModal()"
+              class="text-gray-400 hover:text-gray-600 text-2xl"
+            >
               <i class="fas fa-times"></i>
             </button>
           </div>
 
           <form id="employee-form" onsubmit="saveEmployee(event)">
-            <input type="hidden" id="emp-id"> <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <input type="hidden" id="emp-id" />
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label class="block text-sm font-semibold text-gray-700 mb-1">Name *</label>
-                <input type="text" id="emp-name" class="w-full border p-2 rounded" placeholder="Full Name" required />
+                <input
+                  type="text"
+                  id="emp-name"
+                  class="w-full border p-2 rounded"
+                  placeholder="Full Name"
+                  required
+                />
               </div>
-              
+
               <div>
                 <label class="block text-sm font-semibold text-gray-700 mb-1">Designation *</label>
-                <input type="text" id="emp-designation" class="w-full border p-2 rounded" placeholder="e.g. CEO, Medical Officer, Cook" required />
+                <input
+                  type="text"
+                  id="emp-designation"
+                  class="w-full border p-2 rounded"
+                  placeholder="e.g. CEO, Medical Officer, Cook"
+                  required
+                />
               </div>
 
               <div>
                 <label class="block text-sm font-semibold text-gray-700 mb-1">Pay</label>
-                <input type="text" id="emp-pay" class="w-full border p-2 rounded" placeholder="Salary Amount" />
+                <input
+                  type="text"
+                  id="emp-pay"
+                  class="w-full border p-2 rounded"
+                  placeholder="Salary Amount"
+                />
               </div>
 
               <div>
                 <label class="block text-sm font-semibold text-gray-700 mb-1">Advance</label>
-                <input type="text" id="emp-advance" class="w-full border p-2 rounded" placeholder="Advance Taken" />
+                <input
+                  type="text"
+                  id="emp-advance"
+                  class="w-full border p-2 rounded"
+                  placeholder="Advance Taken"
+                />
               </div>
 
               <div>
                 <label class="block text-sm font-semibold text-gray-700 mb-1">Duty Timings</label>
-                <input type="text" id="emp-timings" class="w-full border p-2 rounded" placeholder="e.g. 9am to 5pm" />
+                <input
+                  type="text"
+                  id="emp-timings"
+                  class="w-full border p-2 rounded"
+                  placeholder="e.g. 9am to 5pm"
+                />
               </div>
 
               <div>
-                <label class="block text-sm font-semibold text-gray-700 mb-1">Date of Joining</label>
-                <input type="text" id="emp-joining" class="w-full border p-2 rounded" placeholder="e.g. September 4, 2024" />
+                <label class="block text-sm font-semibold text-gray-700 mb-1"
+                  >Date of Joining</label
+                >
+                <input
+                  type="text"
+                  id="emp-joining"
+                  class="w-full border p-2 rounded"
+                  placeholder="e.g. September 4, 2024"
+                />
               </div>
 
               <div>
                 <label class="block text-sm font-semibold text-gray-700 mb-1">CNIC #</label>
-                <input type="text" id="emp-cnic" class="w-full border p-2 rounded" placeholder="XXXXX-XXXXXXX-X" />
+                <input
+                  type="text"
+                  id="emp-cnic"
+                  class="w-full border p-2 rounded"
+                  placeholder="XXXXX-XXXXXXX-X"
+                />
               </div>
 
               <div>
                 <label class="block text-sm font-semibold text-gray-700 mb-1">Phone #</label>
-                <input type="text" id="emp-phone" class="w-full border p-2 rounded" placeholder="03XX-XXXXXXX" />
+                <input
+                  type="text"
+                  id="emp-phone"
+                  class="w-full border p-2 rounded"
+                  placeholder="03XX-XXXXXXX"
+                />
               </div>
             </div>
 
             <div class="flex gap-3 mt-6">
-              <button type="submit" class="flex-1 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition">
+              <button
+                type="submit"
+                class="flex-1 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition"
+              >
                 <i class="fas fa-save mr-2"></i>Save Details
               </button>
-              <button type="button" onclick="closeEmployeeModal()" class="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-300 transition">
+              <button
+                type="button"
+                onclick="closeEmployeeModal()"
+                class="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-300 transition"
+              >
                 Cancel
               </button>
             </div>
@@ -3429,33 +3560,24 @@
       <table class="discharge-table">
         <thead>
           <tr>
-            <th style="width: 40%; background-color: #f3f3f3">Rehab charges</th>
-            <th style="width: 25%">Month______</th>
-            <th style="width: 25%">Month______</th>
+            <th style="width: 30%; background-color: #f3f3f3">Rehab charges</th>
+            <th style="width: 20%">Month______</th>
+            <th style="width: 20%">Month______</th>
+            <th style="width: 20%">Month______</th>
             <th style="width: 10%"></th>
           </tr>
         </thead>
         <tbody>
           <tr style="height: 40px">
-            <td>Test</td>
-            <td></td>
-            <td></td>
-            <td></td>
-          </tr>
-          <tr style="height: 40px">
-            <td>Monthly Fee</td>
-            <td id="ds-fee-col1"></td>
-            <td id="ds-fee-col2"></td>
-            <td></td>
-          </tr>
-          <tr style="height: 40px">
             <td>Laundry</td>
             <td id="ds-laundry-col1"></td>
             <td id="ds-laundry-col2"></td>
+            <td id="ds-laundry-col3"></td>
             <td></td>
           </tr>
           <tr style="height: 40px">
             <td>Barber</td>
+            <td></td>
             <td></td>
             <td></td>
             <td></td>
@@ -3464,10 +3586,12 @@
             <td>Canteen</td>
             <td id="ds-canteen-col1"></td>
             <td id="ds-canteen-col2"></td>
+            <td id="ds-canteen-col3"></td>
             <td></td>
           </tr>
           <tr style="height: 40px">
             <td>Medicine</td>
+            <td></td>
             <td></td>
             <td></td>
             <td></td>
@@ -3477,11 +3601,20 @@
             <td></td>
             <td></td>
             <td></td>
+            <td></td>
+          </tr>
+          <tr style="height: 40px">
+            <td>Discount</td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
           </tr>
           <tr style="height: 40px; background-color: #f9f9f9">
             <td><strong>Total</strong></td>
             <td id="ds-total-col1"></td>
             <td id="ds-total-col2"></td>
+            <td id="ds-total-col3"></td>
             <td></td>
           </tr>
           <tr style="height: 40px">
@@ -3489,9 +3622,11 @@
             <td></td>
             <td></td>
             <td></td>
+            <td></td>
           </tr>
           <tr style="height: 40px">
             <td>Remaining</td>
+            <td></td>
             <td></td>
             <td></td>
             <td></td>
