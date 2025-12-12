@@ -192,6 +192,12 @@ def get_dashboard_metrics():
             'created_at': {'$gte': start_of_month, '$lt': end_of_month}
         })
         
+        # 2.5 Discharges This Month
+        discharges_this_month = mongo.db.patients.count_documents({
+            'isDischarged': True,
+            'dischargeDate': {'$gte': start_of_month.isoformat(), '$lt': end_of_month.isoformat()}
+        })
+        
         # 3. Total Income This Month (sum of Monthly Fees from all active patients)
         # Note: This is a snapshot of current fees, not historical
         active_patients = mongo.db.patients.find()
@@ -218,6 +224,7 @@ def get_dashboard_metrics():
         return jsonify({
             'totalPatients': total_patients,
             'admissionsThisMonth': admissions_this_month,
+            'dischargesThisMonth': discharges_this_month,
             'totalIncomeThisMonth': total_income_this_month,
             'totalCanteenSalesThisMonth': total_canteen_sales_this_month
         })
@@ -321,6 +328,11 @@ def get_patients():
             p['_id'] = str(p['_id'])
             # Ensure monthlyFee is present for canteen view logic
             p['monthlyFee'] = p.get('monthlyFee', '0')
+            p['photo1'] = p.get('photo1', '')
+            p['photo2'] = p.get('photo2', '')
+            p['photo3'] = p.get('photo3', '')
+            p['isDischarged'] = p.get('isDischarged', False)
+            p['dischargeDate'] = p.get('dischargeDate')
             patients.append(p)
         return jsonify(patients)
     except Exception as e:
@@ -339,6 +351,11 @@ def add_patient():
         data['monthlyAllowance'] = data.get('monthlyAllowance', '3000') # Default allowance
         data['receivedAmount'] = data.get('receivedAmount', '0')  # New field
         data['drug'] = data.get('drug', '')  # New field
+        data['photo1'] = data.get('photo1', '')
+        data['photo2'] = data.get('photo2', '')
+        data['photo3'] = data.get('photo3', '')
+        data['isDischarged'] = data.get('isDischarged', False)
+        data['dischargeDate'] = data.get('dischargeDate')
         
         # Laundry fields
         data['laundryStatus'] = data.get('laundryStatus', False)  # Boolean: whether laundry service is enabled
@@ -362,8 +379,8 @@ def update_patient(id):
         if '_id' in data: del data['_id']
         
         # Only Admin can modify sensitive/financial fields
-        current_user = session.get('user')
-        if current_user.get('role') != 'Admin':
+        current_role = session.get('role')
+        if current_role != 'Admin':
             # Remove sensitive fields for non-admin users
             sensitive_fields = ['monthlyFee', 'monthlyAllowance', 'laundryStatus', 
                               'laundryAmount', 'cnic', 'contactNo', 'guardianName', 
