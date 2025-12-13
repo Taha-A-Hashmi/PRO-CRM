@@ -504,8 +504,8 @@ def get_canteen_breakdown():
     
     try:
         # 1. Fetch all patients with ID, Name, and Allowance
-        patients_cursor = mongo.db.patients.find({}, {'name': 1, 'monthlyAllowance': 1})
-        patients_map = {str(p['_id']): {'name': p['name'], 'allowance': p.get('monthlyAllowance', '0'), 'sales': 0} for p in patients_cursor}
+        patients_cursor = mongo.db.patients.find({}, {'name': 1, 'monthlyAllowance': 1, 'isDischarged': 1})
+        patients_map = {str(p['_id']): {'name': p['name'], 'allowance': p.get('monthlyAllowance', '0'), 'sales': 0, 'isDischarged': p.get('isDischarged', False)} for p in patients_cursor}
         
         # 2. Calculate monthly sales per patient
         pipeline = [
@@ -531,15 +531,16 @@ def get_canteen_breakdown():
                 sales = data['sales']
                 allowance = 0
                 balance = -sales
-                
+            
             breakdown_list.append({
                 'id': p_id,
                 'name': data['name'],
                 'monthlyAllowance': data['allowance'],
                 'monthlySales': sales,
-                'remainingBalance': balance
+                'remainingBalance': balance,
+                'isDischarged': data.get('isDischarged', False)
             })
-            
+        
         return jsonify(breakdown_list)
     except Exception as e:
         print(f"Canteen Breakdown Error: {e}")
@@ -807,7 +808,8 @@ def get_accounts_summary():
         patients = list(mongo.db.patients.find({}, {
             'name': 1, 'fatherName': 1, 'admissionDate': 1, 
             'monthlyFee': 1, 'address': 1, 'age': 1,
-            'laundryStatus': 1, 'laundryAmount': 1, 'receivedAmount': 1
+            'laundryStatus': 1, 'laundryAmount': 1, 'receivedAmount': 1,
+            'isDischarged': 1 # ADDED isDischarged
         }))
         
         # Get total canteen sales per patient
@@ -831,7 +833,8 @@ def get_accounts_summary():
                 'canteenTotal': sales_map.get(pid, 0),
                 'laundryStatus': p.get('laundryStatus', False),
                 'laundryAmount': p.get('laundryAmount', 0),
-                'receivedAmount': p.get('receivedAmount', '0') # NEW FIELD
+                'receivedAmount': p.get('receivedAmount', '0'), # NEW FIELD
+                'isDischarged': p.get('isDischarged', False) # ADDED isDischarged
             })
         
         return jsonify(summary)
