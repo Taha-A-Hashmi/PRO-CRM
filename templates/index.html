@@ -1230,10 +1230,12 @@
         orderedPatients.forEach(({ p, pid }, index) => {
           const id = pid;
           const isDischarged = dischargedPatientIds.has(id) || p.isDischarged;
+          const alternateClass = index % 2 === 0 ? 'bg-white' : 'bg-emerald-100/20';
+          const rowClass = isDischarged ? 'bg-gray-200 text-gray-500' : alternateClass;
+          const rowStyle = isDischarged ? 'opacity: 0.7;' : '';
           const tr = document.createElement('tr');
-          tr.className = `hover:bg-gray-50 border-b cursor-pointer transition ${
-            isDischarged ? 'opacity-80 bg-gray-100 text-gray-500' : ''
-          }`;
+          tr.className = `hover:bg-gray-50 border-b cursor-pointer transition ${rowClass}`;
+          tr.style.cssText = rowStyle;
           tr.onclick = (e) => {
             if (e.target.closest('.action-btn')) return;
             showPatientDetail(id);
@@ -1361,6 +1363,7 @@
 
           printDischargeSlip(id);
           renderPatientsTable(patientsData);
+          renderCanteenBreakdown();
           showSuccessModal('Patient discharged and saved.');
         } catch (err) {
           console.error('Discharge error:', err);
@@ -1759,7 +1762,13 @@
           const tbody = document.getElementById('accounts-table-body');
           tbody.innerHTML = '';
 
-          accountsData.forEach((p) => {
+          // Sort: Active first, Discharged last
+          accountsData.sort((a, b) => {
+            if (a.isDischarged === b.isDischarged) return 0;
+            return a.isDischarged ? 1 : -1;
+          });
+
+          accountsData.forEach((p, index) => {
             // 1. Parse Values (handle strings with commas or empty values)
             const fee = parseInt(p.monthlyFee.toString().replace(/,/g, '')) || 0;
             const received = parseInt(p.receivedAmount.toString().replace(/,/g, '')) || 0;
@@ -1777,8 +1786,13 @@
             const balanceClass =
               balanceDue > 0 ? 'text-red-600 font-bold' : 'text-green-600 font-bold';
 
+            // 4. Row Styling for Discharged
+            const alternateClass = index % 2 === 0 ? 'bg-white' : 'bg-emerald-100/20';
+            const rowClass = p.isDischarged ? 'bg-gray-200 text-gray-500' : alternateClass;
+            const rowStyle = p.isDischarged ? 'opacity: 0.7;' : '';
+
             tbody.innerHTML += `
-        <tr class="hover:bg-gray-50 border-b transition">
+        <tr class="${rowClass} border-b transition" style="${rowStyle}">
             <td class="px-6 py-4 font-medium whitespace-nowrap">${p.name}</td>
             <td class="px-6 py-4 whitespace-nowrap">${p.fatherName}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${p.admissionDate}</td>
@@ -1893,10 +1907,25 @@
 
           tbody.innerHTML = '';
           patientSelect.innerHTML = '<option value="">-- Select Patient --</option>';
-          breakdown.forEach((p) => {
+
+          // Sort: Active first, Discharged last
+          breakdown.sort((a, b) => {
+            const aDischarged = !!a.isDischarged;
+            const bDischarged = !!b.isDischarged;
+            if (aDischarged === bDischarged) return 0;
+            return aDischarged ? 1 : -1;
+          });
+
+          breakdown.forEach((p, index) => {
             const balanceClass =
               p.remainingBalance < 0 ? 'text-red-500 font-bold' : 'text-green-500';
-            tbody.innerHTML += `<tr class="hover:bg-gray-50 border-b"><td class="px-6 py-4 whitespace-nowrap">${
+
+            const isDischarged = !!p.isDischarged;
+            const alternateClass = index % 2 === 0 ? 'bg-white' : 'bg-emerald-100/20';
+            const rowClass = isDischarged ? 'bg-gray-200 text-gray-500' : alternateClass;
+            const rowStyle = isDischarged ? 'opacity: 0.7;' : '';
+
+            tbody.innerHTML += `<tr class="${rowClass} border-b" style="${rowStyle}"><td class="px-6 py-4 whitespace-nowrap">${
               p.name
             }</td><td class="px-6 py-4 text-gray-500 whitespace-nowrap">${formatCurrency(
               p.monthlyAllowance
@@ -1905,7 +1934,11 @@
             )}</td><td class="px-6 py-4 ${balanceClass} whitespace-nowrap">${formatCurrency(
               p.remainingBalance
             )}</td></tr>`;
-            patientSelect.innerHTML += `<option value="${p.id}">${p.name}</option>`;
+
+            // Only add active patients to the select dropdown
+            if (!isDischarged) {
+              patientSelect.innerHTML += `<option value="${p.id}">${p.name}</option>`;
+            }
           });
         } catch (e) {
           console.error(e);
@@ -1936,12 +1969,13 @@
         const users = await res.json();
         const tbody = document.getElementById('user-table-body');
         tbody.innerHTML = '';
-        users.forEach((u) => {
+        users.forEach((u, index) => {
           const delBtn =
             u.username !== 'ImranSaab'
               ? `<button class="text-red-500 hover:text-red-700 transition" onclick="deleteUser('${u._id}')"><i class="fas fa-trash"></i></button>`
               : '';
-          tbody.innerHTML += `<tr class="hover:bg-gray-50 border-b"><td class="px-6 py-4 whitespace-nowrap">${u.name}</td><td class="px-6 py-4 whitespace-nowrap">${u.username}</td><td class="px-6 py-4 whitespace-nowrap">${u.role}</td><td class="px-6 py-4">${delBtn}</td></tr>`;
+          const alternateClass = index % 2 === 0 ? 'bg-white' : 'bg-emerald-100/20';
+          tbody.innerHTML += `<tr class="${alternateClass} hover:bg-gray-50 border-b"><td class="px-6 py-4 whitespace-nowrap">${u.name}</td><td class="px-6 py-4 whitespace-nowrap">${u.username}</td><td class="px-6 py-4 whitespace-nowrap">${u.role}</td><td class="px-6 py-4">${delBtn}</td></tr>`;
         });
       }
       window.createUser = async function (e) {
@@ -2152,8 +2186,9 @@
               // Add to total (we sum the PAY, not the remaining, usually. Change if needed)
               currentTotalSalary += payClean;
 
+              const alternateClass = index % 2 === 0 ? 'bg-white' : 'bg-emerald-100/20';
               const tr = document.createElement('tr');
-              tr.className = 'hover:bg-emerald-50/50 transition border-b border-gray-100';
+              tr.className = `${alternateClass} hover:bg-emerald-50/50 transition border-b border-gray-100`;
               tr.innerHTML = `
           <td class="px-4 py-3 text-center text-gray-500 font-mono text-xs">${index + 1}</td>
           <td class="px-4 py-3 font-semibold text-gray-800">${emp.name}</td>
