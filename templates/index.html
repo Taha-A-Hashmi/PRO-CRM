@@ -269,7 +269,11 @@
         /* 1. Orientation: Force Landscape so wide tables fit */
         @page {
           size: landscape;
-          margin: 5mm;
+          margin: 10mm 5mm;
+        }
+
+        @page :first {
+          margin-top: 10mm;
         }
 
         /* 2. Base: Hide report containers by default */
@@ -293,33 +297,33 @@
         /* 4. SCENARIO 1: Print Day Only */
         body.print-day #day-report-container {
           display: block !important;
-          position: absolute;
-          left: 0;
-          top: 0;
-          width: 100%;
+          position: static !important;
+          left: auto !important;
+          top: auto !important;
+          width: auto !important;
         }
 
         /* 5. SCENARIO 2: Print Night Only */
         body.print-night #night-report-container {
           display: block !important;
-          position: absolute;
-          left: 0;
-          top: 0;
-          width: 100%;
+          position: static !important;
+          left: auto !important;
+          top: auto !important;
+          width: auto !important;
         }
 
         /* 6. SCENARIO 3: Print Both (Stacked Vertically) */
         body.print-both #day-report-container,
         body.print-both #night-report-container {
           display: block !important;
-          position: relative !important; /* Relative allows them to stack naturally */
-          width: 100%;
-          left: 0;
-          top: 0;
+          position: static !important;
+          width: auto !important;
+          left: auto !important;
+          top: auto !important;
         }
 
         body.print-both #night-report-container {
-          margin-top: 30px; /* Space between the two tables */
+          margin-top: 20px; /* Space between the two tables */
           page-break-before: auto;
         }
 
@@ -329,30 +333,94 @@
           overflow: visible !important;
         }
 
-        /* Reset sticky headers so they print normally as standard table rows */
-        thead th {
-          position: static !important;
-          background-color: #f3f4f6 !important;
-          color: black !important;
-          border: 1px solid #999 !important;
+        /* Day/Night Report Containers: Clean slate for printable */
+        #day-report-container,
+        #night-report-container {
+          background: white !important;
+          border: none !important;
           box-shadow: none !important;
+          border-radius: 0 !important;
+          padding: 0 !important;
+          margin: 0 !important;
+          page-break-inside: avoid;
+          width: 100% !important;
+        }
+
+        #day-report-container > div,
+        #night-report-container > div {
+          background: white !important;
+          border-radius: 0 !important;
+          box-shadow: none !important;
+          border: none !important;
+          padding: 0 !important;
+          margin: 0 !important;
+          overflow: visible !important;
+        }
+
+        /* Overflow wrapper must be removed from print */
+        #day-report-container .overflow-x-auto,
+        #night-report-container .overflow-x-auto {
+          overflow: visible !important;
+          display: block !important;
+          width: 100% !important;
+          padding: 0 !important;
+          margin: 0 !important;
+        }
+
+        /* Report headers: Clean and simple */
+        #day-report-container h4,
+        #night-report-container h4 {
+          display: none; /* Hide decorative headers during print */
+        }
+
+        /* Reset sticky headers so they print normally as standard table rows */
+        #day-report-container thead th,
+        #night-report-container thead th {
+          position: static !important;
+          background-color: #2d5a3d !important;
+          color: white !important;
+          border: 1px solid #333 !important;
+          box-shadow: none !important;
+          padding: 8px !important;
+          font-size: 11px !important;
+          font-weight: bold !important;
+          white-space: nowrap;
+          text-align: center;
+        }
+
+        /* Day/Night table cells */
+        #day-report-container tbody td,
+        #night-report-container tbody td {
+          border: 1px solid #333 !important;
+          padding: 6px !important;
+          font-size: 10px !important;
+          text-align: center;
+          background: white !important;
+        }
+
+        #day-report-container tbody tr:nth-child(even),
+        #night-report-container tbody tr:nth-child(even) {
+          background: #f9f9f9 !important;
         }
 
         /* Reset sticky first column */
-        td.sticky {
+        #day-report-container td.sticky,
+        #night-report-container td.sticky {
           position: static !important;
-          border-right: 1px solid #999 !important;
+          border-right: 1px solid #333 !important;
           box-shadow: none !important;
+          text-align: left;
+          font-weight: 500;
+          background: white !important;
         }
 
-        /* Ensure table borders are distinct and text fits */
-        table,
-        th,
-        td {
+        /* Day and Night Tables */
+        #day-report-container table,
+        #night-report-container table {
           border-collapse: collapse !important;
-          border: 1px solid #999 !important;
-          font-size: 10px; /* Smaller font to ensure all 15 columns fit */
-          padding: 4px !important;
+          width: 100% !important;
+          background: white !important;
+          table-layout: auto;
         }
       }
 
@@ -2881,6 +2949,8 @@
         )}`;
         // Update Icon
         btnElement.innerHTML = getStatusIcon(nextStatus);
+        btnElement.dataset.status = nextStatus || '';
+        btnElement.setAttribute('aria-label', statusLabelMap[nextStatus] || 'No Status');
         // Update click handler for next time
         // We must escape quotes properly for the new onclick string
         btnElement.setAttribute(
@@ -2911,6 +2981,21 @@
         } catch (e) {
           console.error('Network error updating status', e);
         }
+      };
+
+      const statusLabelMap = {
+        done: 'Done',
+        not_done: 'Not Done',
+        complaint: 'Emergency / Complaint',
+        '': 'No Status',
+        null: 'No Status',
+        undefined: 'No Status',
+      };
+
+      const printableSymbolMap = {
+        done: '✓',
+        not_done: '✕',
+        complaint: '!',
       };
 
       function renderSplitTable(type, columns, patients, reportMap) {
@@ -2952,12 +3037,17 @@
             const cellClass = getStatusClass(status);
             const icon = getStatusIcon(status);
 
+            const statusLabel = statusLabelMap[status] || 'No Status';
             rowHtml += `
                   <td class="p-1 border text-center align-middle">
                       <button onclick="cycleReportStatus(this, '${pId}', '${col.key}', '${
               status || ''
             }')" 
-                              class="w-full h-8 rounded flex items-center justify-center transition-all ${cellClass}">
+                              class="w-full h-8 rounded flex items-center justify-center transition-all ${cellClass}"
+                              data-status="${status || ''}"
+                              data-patient="${pId}"
+                              data-slot="${col.key}"
+                              aria-label="${statusLabel}">
                         ${icon}
                       </button>
                   </td>
@@ -3018,27 +3108,155 @@
 
       // --- Print Logic ---
       window.printReport = function (mode) {
-        // Remove old classes
-        document.body.classList.remove('print-day', 'print-night', 'print-both');
+        const printableHTML = generatePrintableReport(mode);
+        const printWindow = window.open('', '', 'width=1200,height=800');
+        if (!printWindow) {
+          alert('Please allow pop-ups to print the report.');
+          return;
+        }
 
-        // Add new class based on button clicked
-        if (mode === 'day') document.body.classList.add('print-day');
-        if (mode === 'night') document.body.classList.add('print-night');
-        if (mode === 'both') document.body.classList.add('print-both');
-
-        // Trigger generic print mode
-        const dash = document.getElementById('dashboard-view');
-        dash.classList.add('print-active'); // ensure dashboard is visible
-
-        // Temporarily hide other sections via global CSS, then print
-        window.print();
-
-        // Cleanup classes
-        setTimeout(() => {
-          document.body.classList.remove('print-day', 'print-night', 'print-both');
-          dash.classList.remove('print-active');
-        }, 1000);
+        printWindow.document.write(printableHTML);
+        printWindow.document.close();
+        printWindow.focus();
+        printWindow.addEventListener('load', () => {
+          printWindow.print();
+          setTimeout(() => {
+            printWindow.close();
+          }, 200);
+        });
       };
+
+      function generatePrintableReport(mode) {
+        const styles = `
+          <style>
+            @page { size: landscape; margin: 15mm; }
+            body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 24px; color: #0f172a; }
+            header { text-align: center; margin-bottom: 24px; }
+            header h1 { margin: 0 0 6px 0; font-size: 26px; letter-spacing: 0.5px; }
+            header p { margin: 2px 0; color: #4b5563; font-size: 13px; }
+            .report-meta { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 16px; color: #4b5563; }
+            .report-section { margin-bottom: 28px; }
+            .report-section h2 { margin-bottom: 12px; font-size: 18px; color: #065f46; }
+            table { width: 100%; border-collapse: collapse; font-size: 12px; }
+            th, td { border: 1px solid #9ca3af; padding: 6px 8px; }
+            th { background: #0f3c2d; color: white; text-align: center; }
+            td { text-align: center; }
+            td.patient-col { text-align: left; font-weight: 600; width: 220px; }
+            tr:nth-child(even) td { background: #f8f9fb; }
+            .legend { font-size: 11px; color: #4b5563; margin-top: 8px; }
+            .no-data { font-size: 12px; color: #6b7280; font-style: italic; }
+            .page-break { page-break-before: always; }
+          </style>
+        `;
+
+        const datePicker = document.getElementById('report-date-picker');
+        const selectedDate =
+          datePicker && datePicker.value ? new Date(`${datePicker.value}T00:00:00`) : new Date();
+        const generatedAt = new Date().toLocaleString('en-US', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+        });
+        const reportDate = formatPrintableDate(selectedDate);
+
+        const sections = [];
+        if (mode === 'day' || mode === 'both') {
+          sections.push(buildPrintableSection('Day Report (9 AM - 9 PM)', 'day'));
+        }
+        if (mode === 'night' || mode === 'both') {
+          sections.push(buildPrintableSection('Night Report (9 PM - 9 AM)', 'night'));
+        }
+
+        if (!sections.length) {
+          sections.push('<p>No report data available for printing.</p>');
+        }
+
+        const sectionsHtml = sections.join('<div class="page-break"></div>');
+
+        const legend = `
+          <div class="legend">
+            <strong>Status Legend:</strong> Leave blank if no update. Use ✓ for Done, ✕ for Not Done, ! for Emergency / Complaint.
+          </div>
+        `;
+
+        return `<!DOCTYPE html>
+          <html>
+            <head>
+              <meta charset="UTF-8" />
+              <title>PRO Daily Report</title>
+              ${styles}
+            </head>
+            <body>
+              <header>
+                <h1>Pakistan Recovery Oasis</h1>
+                <p>Daily Patient Activity Report</p>
+              </header>
+              <div class="report-meta">
+                <span>Date: ${reportDate}</span>
+                <span>Generated: ${generatedAt}</span>
+              </div>
+              ${sectionsHtml}
+              ${legend}
+            </body>
+          </html>`;
+      }
+
+      function buildPrintableSection(title, type) {
+        const table = buildPrintableTable(type);
+        return `<section class="report-section"><h2>${title}</h2>${table}</section>`;
+      }
+
+      function buildPrintableTable(type) {
+        const headerRow = document.getElementById(`${type}-header-row`);
+        const bodyRows = document.querySelectorAll(`#${type}-table-body tr`);
+        if (!headerRow || !headerRow.children.length) {
+          return '<p class="no-data">No columns configured for this report.</p>';
+        }
+        if (!bodyRows.length) {
+          return '<p class="no-data">No active patients for this report.</p>';
+        }
+
+        const sanitize = (text) => (text || '').replace(/\s+/g, ' ').trim();
+
+        const headers = Array.from(headerRow.children)
+          .map(
+            (th, idx) =>
+              `<th class="${idx === 0 ? 'patient-col' : ''}">${sanitize(th.textContent)}</th>`
+          )
+          .join('');
+
+        const rows = Array.from(bodyRows)
+          .map((tr) => {
+            const cells = Array.from(tr.children)
+              .map((td, idx) => {
+                if (idx === 0) {
+                  return `<td class="patient-col">${sanitize(td.textContent)}</td>`;
+                }
+                const btn = td.querySelector('button');
+                const status = btn ? btn.dataset.status || '' : '';
+                const symbol = printableSymbolMap[status] || '';
+                const aria = statusLabelMap[status] || '';
+                return `<td>${symbol ? `<span aria-label="${aria}">${symbol}</span>` : ''}</td>`;
+              })
+              .join('');
+            return `<tr>${cells}</tr>`;
+          })
+          .join('');
+
+        return `<table><thead><tr>${headers}</tr></thead><tbody>${rows}</tbody></table>`;
+      }
+
+      function formatPrintableDate(date) {
+        if (!(date instanceof Date) || isNaN(date)) return '-';
+        return date.toLocaleDateString('en-US', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+        });
+      }
 
       // Helper functions (keep existing ones or ensure they are here)
       function getStatusClass(status) {
