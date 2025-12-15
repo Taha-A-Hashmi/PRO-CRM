@@ -446,6 +446,73 @@
       box-shadow: 0 12px 32px rgba(15, 23, 42, 0.06);
       border: 1px solid rgba(17, 24, 39, 0.04);
     }
+
+    /* --- NEW GLOBAL TABLE STYLES --- */
+    
+    /* 1. Force Overflow-X Auto on Table Containers */
+    .overflow-x-auto {
+      overflow-x: auto !important;
+      -webkit-overflow-scrolling: touch;
+      display: block;
+      width: 100%;
+    }
+
+    /* 2. Zebra Striping (Green Emerald-100 at 20% opacity) */
+    /* Target all table body rows, applying color to even rows */
+    tbody tr:nth-child(even) {
+      background-color: rgb(209 250 229 / 0.4) !important; /* emerald-100 with opacity */
+    }
+
+    /* Optional: Ensure hover effect still looks good over the stripe */
+    tbody tr:hover {
+      background-color: rgb(209 250 229 / 0.8) !important; /* Darker green on hover */
+    }
+
+    /* --- STRONGER FIX FOR DISCHARGED ROWS --- */
+    /* We use the ID #accounts-table-body to make this rule stronger than the generic striping */
+    #accounts-table-body tr.discharged-row,
+    #accounts-table-body tr.discharged-row:nth-child(even),
+    #accounts-table-body tr.discharged-row:hover {
+      background-color: #f3f4f6 !important; /* Gray-100 */
+      color: #9ca3af !important; /* Gray-400 */
+    }
+    
+    /* Also force the specific cells to be gray/dimmed to override Tailwind text colors */
+    #accounts-table-body tr.discharged-row td,
+    #accounts-table-body tr.discharged-row td div,
+    #accounts-table-body tr.discharged-row td span {
+       color: #9ca3af !important;
+    }
+    
+    /* Keep the balance text readable (Red/Green) but slightly dimmed */
+    #accounts-table-body tr.discharged-row td.text-red-300 { color: #fca5a5 !important; }
+    #accounts-table-body tr.discharged-row td.text-green-300 { color: #86efac !important; }
+
+    /* --- FIX FOR PATIENTS DIRECTORY DISCHARGED ROWS --- */
+    #patients-table-body tr.discharged-row,
+    #patients-table-body tr.discharged-row:nth-child(even),
+    #patients-table-body tr.discharged-row:hover {
+      background-color: #f3f4f6 !important; /* Gray-100 */
+      color: #9ca3af !important; /* Gray-400 */
+    }
+
+    /* Force text in cells to be gray */
+    #patients-table-body tr.discharged-row td,
+    #patients-table-body tr.discharged-row td div {
+       color: #9ca3af !important;
+    }
+
+    /* --- FIX FOR CANTEEN TABLE DISCHARGED ROWS --- */
+    #canteen-breakdown-body tr.discharged-row,
+    #canteen-breakdown-body tr.discharged-row:nth-child(even),
+    #canteen-breakdown-body tr.discharged-row:hover {
+      background-color: #f3f4f6 !important; /* Gray-100 */
+      color: #9ca3af !important; /* Gray-400 */
+    }
+
+    #canteen-breakdown-body tr.discharged-row td {
+       color: #9ca3af !important;
+    }
   </style>
   <script>
     let patientsData = [];
@@ -1348,86 +1415,66 @@
         const id = pid;
         const isDischarged = dischargedPatientIds.has(id) || p.isDischarged;
         const tr = document.createElement('tr');
-        tr.className = `hover:bg-gray-50 border-b cursor-pointer transition ${isDischarged ? 'opacity-80 bg-gray-100 text-gray-500' : ''
-          }`;
+        
+        // --- NEW CLASS LOGIC ---
+        // If discharged, add 'discharged-row'. If active, add standard hover classes.
+        tr.className = isDischarged 
+            ? 'discharged-row border-b cursor-pointer transition' 
+            : 'hover:bg-gray-50 border-b cursor-pointer transition';
+            
         tr.onclick = (e) => {
           if (e.target.closest('.action-btn')) return;
           showPatientDetail(id);
         };
 
-        // NEW / FIXED CODE
         const isAdmin = currentUser.role === 'Admin';
-        // We add String(...) to ensure .replace() works even if the DB returns a Number
         const fee = formatCurrency(parseInt(String(p.monthlyFee || '0').replace(/,/g, '') || 0));
         const receivedAmount = formatCurrency(parseInt(String(p.receivedAmount || '0').replace(/,/g, '') || 0));
+        
+        // Hide discharge button if already discharged
         const dischargeBtn =
-          currentUser.role === 'Admin'
+          currentUser.role === 'Admin' && !isDischarged
             ? `<button class="action-btn bg-gray-800 hover:bg-gray-900 text-white px-3 py-1 rounded text-xs shadow transition font-semibold" onclick="event.stopPropagation(); handleDischargeFromTable('${id}');"><i class="fas fa-print mr-1"></i>Discharge</button>`
-            : '';
+            : (isDischarged ? '<span class="text-xs font-bold uppercase border border-gray-300 px-2 py-1 rounded">Discharged</span>' : '');
 
-        // Generate serial number with month name and year
+        // Generate serial number
         const admissionDate = p.admissionDate ? new Date(p.admissionDate) : new Date();
-        const monthNames = [
-          'Jan',
-          'Feb',
-          'Mar',
-          'Apr',
-          'May',
-          'Jun',
-          'Jul',
-          'Aug',
-          'Sep',
-          'Oct',
-          'Nov',
-          'Dec',
-        ];
-        const serialNo = `${monthNames[admissionDate.getMonth()]
-          }${admissionDate.getFullYear()}-${String(index + 1).padStart(3, '0')}`;
+        const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        const serialNo = `${monthNames[admissionDate.getMonth()]}${admissionDate.getFullYear()}-${String(index + 1).padStart(3, '0')}`;
 
-        // Format admission date (e.g., "Dec 12 2025")
-        const formattedAdmissionDate = `${monthNames[admissionDate.getMonth()]
-          } ${admissionDate.getDate()} ${admissionDate.getFullYear()}`;
+        // Format admission date
+        const formattedAdmissionDate = `${monthNames[admissionDate.getMonth()]} ${admissionDate.getDate()} ${admissionDate.getFullYear()}`;
 
-        // Calculate days elapsed
+        // Calculate days
         const today = new Date();
         const daysDiff = Math.floor((today - admissionDate) / (1000 * 60 * 60 * 24));
         const daysElapsed = daysDiff >= 0 ? daysDiff : 0;
-
-        // Calculate days done out of 90
         const daysDone = Math.min(daysElapsed, 90);
         const daysProgress = `${daysDone}/90`;
 
         if (isAdmin) {
           tr.innerHTML = `<td class="px-3 py-2 font-medium text-gray-700 whitespace-nowrap text-xs">${serialNo}</td>
-                            <td class="px-3 py-2 font-medium whitespace-nowrap">${p.name || '-'
-            }</td>
-                            <td class="px-3 py-2 text-gray-600 whitespace-nowrap">${p.fatherName || '-'
-            }</td>
-                            <td class="px-3 py-2 text-gray-600 whitespace-nowrap">${p.contactNo || '-'
-            }</td>
+                            <td class="px-3 py-2 font-medium whitespace-nowrap">${p.name || '-'}</td>
+                            <td class="px-3 py-2 text-gray-600 whitespace-nowrap">${p.fatherName || '-'}</td>
+                            <td class="px-3 py-2 text-gray-600 whitespace-nowrap">${p.contactNo || '-'}</td>
                             <td class="px-3 py-2 font-semibold text-green-700 whitespace-nowrap">${fee}</td>
                             <td class="px-3 py-2 text-gray-600 whitespace-nowrap text-xs">${formattedAdmissionDate}</td>
                             <td class="px-3 py-2 text-center text-gray-700 font-medium whitespace-nowrap text-xs">${daysProgress}</td>
                             <td class="px-3 py-2 text-center text-gray-700 whitespace-nowrap text-xs">${daysElapsed} days</td>
                             <td class="px-3 py-2 font-semibold text-blue-700 whitespace-nowrap">${receivedAmount}</td>
-                            <td class="px-3 py-2 text-gray-600 whitespace-nowrap">${p.drug || '-'
-            }</td>
+                            <td class="px-3 py-2 text-gray-600 whitespace-nowrap">${p.drug || '-'}</td>
                             <td class="px-3 py-2 text-right">${dischargeBtn}</td>`;
         } else {
           tr.innerHTML = `<td class="px-3 py-2 font-medium text-gray-700 whitespace-nowrap text-xs">${serialNo}</td>
-                            <td class="px-3 py-2 font-medium whitespace-nowrap">${p.name || '-'
-            }</td>
-                            <td class="px-3 py-2 text-gray-600 whitespace-nowrap">${p.fatherName || '-'
-            }</td>
-                            <td class="px-3 py-2 text-gray-600 whitespace-nowrap">${p.contactNo || '-'
-            }</td>
+                            <td class="px-3 py-2 font-medium whitespace-nowrap">${p.name || '-'}</td>
+                            <td class="px-3 py-2 text-gray-600 whitespace-nowrap">${p.fatherName || '-'}</td>
+                            <td class="px-3 py-2 text-gray-600 whitespace-nowrap">${p.contactNo || '-'}</td>
                             <td class="px-3 py-2 font-semibold text-green-700 whitespace-nowrap">${fee}</td>
                             <td class="px-3 py-2 text-gray-600 whitespace-nowrap text-xs">${formattedAdmissionDate}</td>
                             <td class="px-3 py-2 text-center text-gray-700 font-medium whitespace-nowrap text-xs">${daysProgress}</td>
                             <td class="px-3 py-2 text-center text-gray-700 whitespace-nowrap text-xs">${daysElapsed} days</td>
                             <td class="px-3 py-2 font-semibold text-blue-700 whitespace-nowrap">${receivedAmount}</td>
-                            <td class="px-3 py-2 text-gray-600 whitespace-nowrap">${p.drug || '-'
-            }</td>
+                            <td class="px-3 py-2 text-gray-600 whitespace-nowrap">${p.drug || '-'}</td>
                             <td class="px-3 py-2 text-right"></td>`;
         }
         tbody.appendChild(tr);
@@ -1871,47 +1918,64 @@
     window.addEventListener('load', initPhotoUploadHandlers);
 
     // --- ACCOUNTS (ADMIN) ---
-    async function renderAccounts() {
+   async function renderAccounts() {
       if (currentUser.role !== 'Admin') return;
       try {
         const res = await fetch('/api/accounts/summary');
         if (!res.ok) throw new Error('API Error');
-        accountsData = await res.json();
+        let rawData = await res.json();
+
+        // 1. SORTING: Active first, Discharged last
+        const active = rawData.filter(p => !p.isDischarged);
+        const discharged = rawData.filter(p => p.isDischarged);
+        accountsData = [...active, ...discharged];
 
         const tbody = document.getElementById('accounts-table-body');
         tbody.innerHTML = '';
 
         accountsData.forEach((p) => {
-          // 1. Parse Values (handle strings with commas or empty values)
+          // 2. PARSE VALUES
           const fee = parseInt(p.monthlyFee.toString().replace(/,/g, '')) || 0;
           const received = parseInt(p.receivedAmount.toString().replace(/,/g, '')) || 0;
           const canteen = p.canteenTotal || 0;
           const laundry = p.laundryAmount || 0;
 
-          // 2. Calculate Totals
-          // Total Bill = Fee + Canteen + Laundry
+          // 3. CALCULATE TOTALS
           const totalBill = fee + canteen + laundry;
-
-          // Balance Due = Total Bill - Received
           const balanceDue = totalBill - received;
 
-          // 3. Styling for Balance (Red if positive due, Green if paid/surplus)
-          const balanceClass = balanceDue > 0 ? 'text-red-600 font-bold' : 'text-green-600 font-bold';
+          // 4. STYLING
+          // We add 'discharged-row' class if discharged. 
+          // The CSS we added in Step 1 will handle the color.
+          const rowClass = p.isDischarged 
+            ? 'discharged-row border-gray-100' 
+            : 'hover:bg-gray-50 transition';
+
+          // Balance Text Color logic
+          const balanceClass = balanceDue > 0 
+            ? (p.isDischarged ? 'text-red-300 font-bold' : 'text-red-600 font-bold') 
+            : (p.isDischarged ? 'text-green-300 font-bold' : 'text-green-600 font-bold');
+
+          const statusBadge = p.isDischarged 
+            ? '<span class="ml-2 text-[10px] uppercase font-bold bg-gray-200 text-gray-500 px-2 py-0.5 rounded">Discharged</span>'
+            : '';
 
           tbody.innerHTML += `
-        <tr class="hover:bg-gray-50 border-b transition">
-            <td class="px-6 py-4 font-medium whitespace-nowrap">${p.name}</td>
+        <tr class="border-b transition ${rowClass}">
+            <td class="px-6 py-4 font-medium whitespace-nowrap">
+                ${p.name} ${statusBadge}
+            </td>
             <td class="px-6 py-4 whitespace-nowrap">${p.fatherName}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${p.admissionDate}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm">${p.admissionDate}</td>
             
             <td class="px-6 py-4 whitespace-nowrap">
-                <div class="font-bold text-gray-800">${formatCurrency(totalBill)}</div>
-                <div class="text-xs text-gray-400">
+                <div class="font-bold">${formatCurrency(totalBill)}</div>
+                <div class="text-xs opacity-70">
                     (Fee: ${formatNumber(fee)} + Cant: ${formatNumber(canteen)} + Lnd: ${formatNumber(laundry)})
                 </div>
             </td>
 
-            <td class="px-6 py-4 font-medium text-blue-700 whitespace-nowrap">
+            <td class="px-6 py-4 font-medium whitespace-nowrap">
                 ${formatCurrency(received)}
             </td>
 
@@ -1919,7 +1983,7 @@
                 ${formatCurrency(balanceDue)}
             </td>
 
-            <td class="px-6 py-4">
+            <td class="px-6 py-4">  
                 <button onclick="printDischargeSlip('${p.id}')" class="bg-gray-800 hover:bg-gray-900 text-white px-3 py-1 rounded text-sm shadow-md transition font-semibold">
                     <i class="fas fa-print mr-1"></i> Discharge
                 </button>
@@ -1930,7 +1994,7 @@
         console.error(e);
       }
     }
-    window.printDischargeSlip = function (id) {
+      window.printDischargeSlip = function (id) {
       let p = accountsData?.find((x) => x.id === id);
 
       // Fallback to patients list if not present in accounts summary
@@ -1987,10 +2051,11 @@
     };
 
     // --- CANTEEN LOGIC ---
-    async function renderCanteenBreakdown() {
+  async function renderCanteenBreakdown() {
       try {
         const res = await fetch('/api/canteen/sales/breakdown');
-        const breakdown = await res.json();
+        const rawData = await res.json();
+        
         const tbody = document.getElementById('canteen-breakdown-body');
         const patientSelect = document.getElementById('canteen-patient-select');
         const salesPanel = document.getElementById('canteen-sales-panel');
@@ -1999,7 +2064,7 @@
         const canRecord = currentUser.role === 'Admin' || currentUser.role === 'Canteen';
         salesPanel.style.display = canRecord ? 'block' : 'none';
 
-        // Responsive layout adjustment via classes
+        // Responsive layout adjustment
         if (canRecord) {
           breakdownContainer.classList.remove('lg:col-span-3');
           breakdownContainer.classList.add('lg:col-span-2');
@@ -2008,26 +2073,62 @@
           breakdownContainer.classList.add('lg:col-span-3');
         }
 
-        tbody.innerHTML = '';
+        // --- 1. POPULATE DROPDOWN (Active Patients Only) ---
         patientSelect.innerHTML = '<option value="">-- Select Patient --</option>';
+        
+        // Sort active patients alphabetically for the dropdown
+        const activeForDropdown = rawData.filter(p => !p.isDischarged).sort((a, b) => a.name.localeCompare(b.name));
+        
+        activeForDropdown.forEach(p => {
+             patientSelect.innerHTML += `<option value="${p.id}">${p.name}</option>`;
+        });
+
+        // --- 2. RENDER TABLE (Sorted: Active Top, Discharged Bottom) ---
+        const active = rawData.filter(p => !p.isDischarged);
+        const discharged = rawData.filter(p => p.isDischarged);
+        const breakdown = [...active, ...discharged];
+
+        tbody.innerHTML = '';
+        
         breakdown.forEach((p) => {
-          const balanceClass =
-            p.remainingBalance < 0 ? 'text-red-500 font-bold' : 'text-green-500';
-          tbody.innerHTML += `<tr class="hover:bg-gray-50 border-b"><td class="px-6 py-4 whitespace-nowrap">${p.name
-            }</td><td class="px-6 py-4 text-gray-500 whitespace-nowrap">${formatCurrency(
-              p.monthlyAllowance
-            )}</td><td class="px-6 py-4 whitespace-nowrap">${formatCurrency(
-              p.monthlySales
-            )}</td><td class="px-6 py-4 ${balanceClass} whitespace-nowrap">${formatCurrency(
-              p.remainingBalance
-            )}</td></tr>`;
-          patientSelect.innerHTML += `<option value="${p.id}">${p.name}</option>`;
+          // Balance color logic
+          let balanceClass = p.remainingBalance < 0 ? 'text-red-600 font-bold' : 'text-green-600 font-bold';
+          
+          // Row style logic
+          const rowClass = p.isDischarged 
+            ? 'discharged-row border-b border-gray-100' 
+            : 'hover:bg-gray-50 border-b transition';
+
+          // If discharged, dim the balance text too
+          if(p.isDischarged) {
+             balanceClass = p.remainingBalance < 0 ? 'text-red-300 font-bold' : 'text-green-300 font-bold';
+          }
+
+          const statusBadge = p.isDischarged 
+            ? '<span class="ml-2 text-[10px] uppercase font-bold bg-gray-200 text-gray-500 px-2 py-0.5 rounded">Discharged</span>'
+            : '';
+
+          tbody.innerHTML += `
+            <tr class="${rowClass}">
+                <td class="px-6 py-4 whitespace-nowrap">
+                    ${p.name} ${statusBadge}
+                </td>
+                <td class="px-6 py-4 text-gray-500 whitespace-nowrap">
+                    ${formatCurrency(p.monthlyAllowance)}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap font-medium">
+                    ${formatCurrency(p.monthlySales)}
+                </td>
+                <td class="px-6 py-4 ${balanceClass} whitespace-nowrap">
+                    ${formatCurrency(p.remainingBalance)}
+                </td>
+            </tr>`;
         });
       } catch (e) {
         console.error(e);
       }
     }
-
+    
     window.recordCanteenSale = async function (e) {
       e.preventDefault();
       const patientId = document.getElementById('canteen-patient-select').value;
@@ -3113,7 +3214,7 @@
         </div>
 
         <!-- Data Table -->
-        <div class="kpi-card overflow-hidden" style="padding: 0; border-color: rgba(16, 185, 129, 0.2)">
+        <div class="kpi-card overflow-auto-x hidden" style="padding: 0; border-color: rgba(16, 185, 129, 0.2)">
           <table class="min-w-full divide-y divide-emerald-100">
             <thead class="bg-gradient-to-r from-emerald-700 to-emerald-600 text-white">
               <tr>
@@ -3172,7 +3273,7 @@
         </div>
       </div>
 
-      <div class="kpi-card overflow-hidden" style="padding: 0; border-color: rgba(16, 185, 129, 0.2)">
+      <div class="kpi-card overflow-x-auto" style="padding: 0; border-color: rgba(16, 185, 129, 0.2)">
         <table class="min-w-full divide-y divide-emerald-100">
           <thead class="bg-gradient-to-r from-emerald-700 to-emerald-600 text-white">
             <tr>
@@ -3193,8 +3294,8 @@
       <h2 class="text-xl md:text-2xl font-bold mb-6 text-green-800">
         <i class="fas fa-file-invoice-dollar mr-2"></i>Accounts & Discharge
       </h2>
-      <div class="kpi-card overflow-hidden" style="padding: 0; border-color: rgba(16, 185, 129, 0.2)">
-        <table class="min-w-full divide-y divide-emerald-100">
+      <div class="kpi-card overflow-x-auto" style="padding: 0; border-color: rgba(16, 185, 129, 0.2)">
+        <table class="min-w-full divide-y divide-emerald-100 overflow-x-auto">
           <thead class="bg-gradient-to-r from-emerald-700 to-emerald-600 text-white">
             <tr>
               <th class="px-6 py-3 text-left whitespace-nowrap font-semibold">Patient Name</th>
@@ -3427,7 +3528,7 @@
         </div>
         <div id="canteen-breakdown-table-container" class="col-span-2 kpi-card overflow-hidden"
           style="padding: 0; border-color: rgba(16, 185, 129, 0.2)">
-          <table class="min-w-full divide-y divide-emerald-100">
+          <table class="min-w-full divide-y divide-emerald-100 overflow-x-auto">
             <thead class="bg-gradient-to-r from-emerald-700 to-emerald-600 text-white">
               <tr>
                 <th class="px-6 py-3 text-left whitespace-nowrap font-semibold">Patient</th>
@@ -3465,7 +3566,7 @@
             </button>
           </form>
         </div>
-        <div class="col-span-2 kpi-card overflow-hidden" style="padding: 0; border-color: rgba(16, 185, 129, 0.2)">
+        <div class="col-span-2 kpi-card overflow-x-auto" style="padding: 0; border-color: rgba(16, 185, 129, 0.2)">
           <table class="min-w-full divide-y divide-emerald-100">
             <thead class="bg-gradient-to-r from-emerald-700 to-emerald-600 text-white">
               <tr>

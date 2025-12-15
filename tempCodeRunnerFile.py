@@ -1111,5 +1111,139 @@ def delete_employee(id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+
+@app.route('/api/patients/<id>/payment', methods=['POST'])
+@role_required(['Admin'])
+def add_patient_payment(id):
+    if not check_db(): return jsonify({"error": "Database error"}), 500
+    try:
+        data = request.json
+        amount_paid = int(data.get('amount', 0))
+        
+        patient = mongo.db.patients.find_one({'_id': ObjectId(id)})
+        if not patient:
+            return jsonify({"error": "Patient not found"}), 404
+
+        # 1. Parse existing received amount (remove commas if present)
+        current_received_str = str(patient.get('receivedAmount', '0')).replace(',', '')
+        try:
+            current_received = int(current_received_str)
+        except ValueError:
+            current_received = 0
+
+        # 2. Add new payment
+        new_total = current_received + amount_paid
+
+        # 3. Update Patient Record
+        mongo.db.patients.update_one(
+            {'_id': ObjectId(id)}, 
+            {'$set': {'receivedAmount': str(new_total)}}
+        )
+
+        # 4. Optional: Log as an Incoming Expense automatically
+        expense_note = f"Partial payment from {patient.get('name')}"
+        mongo.db.expenses.insert_one({
+            'type': 'incoming',
+            'amount': amount_paid,
+            'category': 'Patient Fee',
+            'note': expense_note,
+            'date': datetime.now(),
+            'recorded_by': session.get('username', 'Admin'),
+            'auto': True
+        })
+
+        return jsonify({"message": "Payment recorded successfully", "new_total": new_total})
+    except Exception as e:
+        print(f"Payment Error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+# --- DAILY REPORT APIS ---
+
+@app.route('/api/reports', methods=['GET'])
+@role_required(['Admin', 'General Staff', 'Doctor'])
+def get_daily_report():
+    if not check_db(): return jsonify({"error": "Database error"}), 500
+    
+    date_str = request.args.get('date')
+    if not date_str:
+        return jsonify({"error": "Date required"}), 400
+        
+    try:
+        # Fetch all report entries for this specific date
+        reports = list(mongo.db.daily_reports.find({'date': date_str}))
+        
+        # Convert ObjectId to string
+        for r in reports:
+            r['_id'] = str(r['_id'])
+            r['patient_id'] = str(r['patient_id'])
+            
+        return jsonify(reports)
+    except Exception as e:
+        print(f"Report Fetch Error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/reports/update', methods=['POST'])
+@role_required(['Admin', 'General Staff', 'Doctor'])
+def update_daily_report():
+    if not check_db(): return jsonify({"error": "Database error"}), 500
+    
+    data = request.json
+    # Expected: { date, patient_id, time_slot, status }
+    # status enum: 'done', 'not_done', 'complaint', ''
+    
+    try:
+        query = {
+            'date': data['date'],
+            'patient_id': ObjectId(data['patient_id'])
+        }
+        
+        # Upsert: Update if exists, Insert if not
+        update = {
+            '$set': {
+                f"schedule.{data['time_slot']}": data['status'],
+                'updated_at': datetime.now(),
+                'updated_by': session.get('username', 'System')
+            }
+        }
+        
+        mongo.db.daily_reports.update_one(query, update, upsert=True)
+        return jsonify({"message": "Status updated"}), 200
+        
+    except Exception as e:
+        print(f"Report Update Error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+# --- REPORT CONFIGURATION API ---
+    
+@app.route('/api/reports/config', methods=['GET'])
+@login_required
+def get_report_config():
+    if not check_db(): return jsonify({})
+    # Return saved config or empty (frontend handles defaults)
+    config = mongo.db.report_config.find_one({'_id': 'main_config'})
+    if config:
+        return jsonify(config)
+    return jsonify({})
+
+@app.route('/api/reports/config', methods=['POST'])
+@role_required(['Admin'])
+def save_report_config():
+    if not check_db(): return jsonify({"error": "Database error"}), 500
+    data = request.json
+    try:
+        # Save day_columns and night_columns
+        mongo.db.report_config.update_one(
+            {'_id': 'main_config'},
+            {'$set': {
+                'day_columns': data.get('day_columns'),
+                'night_columns': data.get('night_columns')
+            }},
+            upsert=True
+        )
+        return jsonify({"message": "Layout saved"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

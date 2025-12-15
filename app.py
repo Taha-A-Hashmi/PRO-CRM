@@ -503,9 +503,20 @@ def get_canteen_breakdown():
     start_of_month = today.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     
     try:
-        # 1. Fetch all patients with ID, Name, and Allowance
-        patients_cursor = mongo.db.patients.find({}, {'name': 1, 'monthlyAllowance': 1})
-        patients_map = {str(p['_id']): {'name': p['name'], 'allowance': p.get('monthlyAllowance', '0'), 'sales': 0} for p in patients_cursor}
+        # 1. Fetch all patients with ID, Name, Allowance AND isDischarged
+        patients_cursor = mongo.db.patients.find({}, {
+            'name': 1, 'monthlyAllowance': 1, 'isDischarged': 1
+        })
+        
+        patients_map = {
+            str(p['_id']): {
+                'name': p['name'], 
+                'allowance': p.get('monthlyAllowance', '0'), 
+                'sales': 0,
+                'isDischarged': p.get('isDischarged', False) # <--- NEW
+            } 
+            for p in patients_cursor
+        }
         
         # 2. Calculate monthly sales per patient
         pipeline = [
@@ -537,14 +548,14 @@ def get_canteen_breakdown():
                 'name': data['name'],
                 'monthlyAllowance': data['allowance'],
                 'monthlySales': sales,
-                'remainingBalance': balance
+                'remainingBalance': balance,
+                'isDischarged': data['isDischarged'] # <--- NEW
             })
             
         return jsonify(breakdown_list)
     except Exception as e:
         print(f"Canteen Breakdown Error: {e}")
         return jsonify({"error": str(e)}), 500
-
 
 # --- EXPENSES APIs ---
 
@@ -803,11 +814,12 @@ def export_patients():
 def get_accounts_summary():
     if not check_db(): return jsonify({"error": "Database error"}), 500
     try:
-        # Get all patients - ADDED 'receivedAmount' to the projection
+        # Get all patients - Added 'isDischarged' to projection
         patients = list(mongo.db.patients.find({}, {
             'name': 1, 'fatherName': 1, 'admissionDate': 1, 
             'monthlyFee': 1, 'address': 1, 'age': 1,
-            'laundryStatus': 1, 'laundryAmount': 1, 'receivedAmount': 1
+            'laundryStatus': 1, 'laundryAmount': 1, 'receivedAmount': 1,
+            'isDischarged': 1
         }))
         
         # Get total canteen sales per patient
@@ -831,7 +843,8 @@ def get_accounts_summary():
                 'canteenTotal': sales_map.get(pid, 0),
                 'laundryStatus': p.get('laundryStatus', False),
                 'laundryAmount': p.get('laundryAmount', 0),
-                'receivedAmount': p.get('receivedAmount', '0') # NEW FIELD
+                'receivedAmount': p.get('receivedAmount', '0'),
+                'isDischarged': p.get('isDischarged', False) # <--- NEW: Return discharge status
             })
         
         return jsonify(summary)
