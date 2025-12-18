@@ -639,6 +639,10 @@
       let currentUser = { isLoggedIn: false, role: 'Guest', username: '' };
       let totalSalaries = 0;
       let totalBills = 0;
+      window.reportTableState = window.reportTableState || {
+        day: { showAll: false },
+        night: { showAll: false },
+      };
 
       const formatCurrency = (amount) =>
         new Intl.NumberFormat('en-PK', {
@@ -2904,9 +2908,9 @@
         'slot_0500',
         'slot_0600',
         'slot_0700',
-        'slot_0800',
-        'slot_med_night',
       ];
+
+      const NIGHT_REMOVED_KEYS = new Set(['slot_0800', 'slot_med_night']);
 
       const NIGHT_EXCLUSIVE_KEYS = new Set(['slot_1700', 'slot_1800', 'slot_1900', 'slot_2000']);
 
@@ -2940,8 +2944,6 @@
         { key: 'slot_0500', label: '05:00 AM' },
         { key: 'slot_0600', label: '06:00 AM' },
         { key: 'slot_0700', label: '07:00 AM' },
-        { key: 'slot_0800', label: '08:00 AM' },
-        { key: 'slot_med_night', label: 'Night Medicine' },
       ];
 
       let DAY_CONFIG = [...DEFAULT_DAY_CONFIG];
@@ -3009,6 +3011,7 @@
           }
         });
         NIGHT_CONFIG = orderColumns(NIGHT_CONFIG, NIGHT_COLUMN_ORDER);
+        NIGHT_CONFIG = NIGHT_CONFIG.filter((col) => !NIGHT_REMOVED_KEYS.has(col.key));
       };
 
       enforceColumnPlacement();
@@ -3144,8 +3147,14 @@
         const accentClass = type === 'day' ? 'text-emerald-100' : 'text-indigo-200';
 
         // Build Headers
-        let headersHtml =
-          '<th class="px-4 py-3 text-left whitespace-nowrap sticky left-0 z-10 shadow-md" style="background-color: inherit;">Patient Name</th>';
+        const headerBaseClasses =
+          type === 'day'
+            ? 'px-4 py-3 text-left whitespace-nowrap sticky left-0 z-20 shadow-md bg-emerald-600 text-white'
+            : 'px-4 py-3 text-left whitespace-nowrap sticky left-0 z-20 shadow-md bg-indigo-900 text-white';
+
+        let headersHtml = `<th id="${type}-patient-header" class="${headerBaseClasses}" style="min-width: 180px;">
+                              <span class="patient-header-label font-semibold tracking-wide text-sm" style="transition: opacity 0.15s ease;">Patient Name</span>
+                           </th>`;
         columns.forEach((col, index) => {
           const meta = COLUMN_ACTIVITY_MAP[col.key];
           const isEditableColumn = isAdmin && !meta;
@@ -3177,18 +3186,32 @@
           return;
         }
 
+        if (!window.reportTableState[type]) {
+          window.reportTableState[type] = { showAll: false };
+        }
+        const showAllNormal = window.reportTableState[type].showAll;
+        const flaggedRows = [];
+        const normalRows = [];
+
         patients.forEach((p) => {
           const pId = p._id || p.id;
           const schedules = reportMap[pId] || {};
+          let hasIssue = false;
 
-          let rowHtml = `<td class="px-4 py-2 font-bold text-gray-800 sticky left-0 bg-white border-r z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] whitespace-nowrap text-xs md:text-sm">${p.name}</td>`;
+          const rowBaseClasses =
+            type === 'day'
+              ? 'px-4 py-2 font-bold text-emerald-900 bg-emerald-50'
+              : 'px-4 py-2 font-bold text-indigo-900 bg-indigo-50';
+
+          let rowHtml = `<td class="${rowBaseClasses} sticky left-0 border-r z-20 whitespace-nowrap text-xs md:text-sm max-w-[220px]" style="min-width: 180px;"><span class="block truncate">${escapeHtml(
+            p.name || ''
+          )}</span></td>`;
 
           columns.forEach((col) => {
-            // Use the stable KEY to fetch status
             const status = schedules[col.key];
+            if (status === 'not_done' || status === 'complaint') hasIssue = true;
             const cellClass = getStatusClass(status);
             const icon = getStatusIcon(status);
-
             const statusLabel = statusLabelMap[status] || 'No Status';
             rowHtml += `
                   <td class="p-1 border text-center align-middle">
@@ -3209,9 +3232,107 @@
           const tr = document.createElement('tr');
           tr.innerHTML = rowHtml;
           tr.className = 'hover:bg-gray-50 transition';
-          tbody.appendChild(tr);
+
+          if (hasIssue) {
+            tr.classList.add('bg-rose-50');
+            flaggedRows.push(tr);
+          } else {
+            tr.classList.add('report-normal-row', `report-normal-row-${type}`);
+            if (!showAllNormal) tr.classList.add('hidden');
+            normalRows.push(tr);
+          }
         });
+
+        const fragment = document.createDocumentFragment();
+
+        if (flaggedRows.length === 0 && normalRows.length > 0) {
+          const infoRow = document.createElement('tr');
+          infoRow.innerHTML = `<td colspan="${
+            columns.length + 1
+          }" class="px-4 py-4 text-center text-sm text-emerald-800 bg-emerald-50 font-semibold">All patients are currently on track.</td>`;
+          fragment.appendChild(infoRow);
+        }
+
+        flaggedRows.forEach((row) => fragment.appendChild(row));
+
+        if (normalRows.length > 0) {
+          const toggleRow = document.createElement('tr');
+          const toggleCell = document.createElement('td');
+          toggleCell.colSpan = columns.length + 1;
+          toggleCell.className = 'bg-amber-50 text-center py-3';
+          const toggleBtn = document.createElement('button');
+          toggleBtn.type = 'button';
+          toggleBtn.id = `report-toggle-btn-${type}`;
+          toggleBtn.dataset.count = normalRows.length;
+          toggleBtn.className =
+            'inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold rounded-full border border-amber-300 bg-white text-amber-700 shadow-sm hover:bg-amber-100 transition';
+          toggleBtn.setAttribute('onclick', `toggleReportRows('${type}')`);
+          toggleBtn.innerHTML = showAllNormal
+            ? '<i class="fas fa-eye-slash"></i> Hide On-Track Patients'
+            : `<i class="fas fa-eye"></i> Show ${normalRows.length} On-Track Patients`;
+          toggleCell.appendChild(toggleBtn);
+          toggleRow.appendChild(toggleCell);
+          fragment.appendChild(toggleRow);
+
+          normalRows.forEach((row) => fragment.appendChild(row));
+        }
+
+        if (flaggedRows.length === 0 && normalRows.length === 0) {
+          const emptyRow = document.createElement('tr');
+          emptyRow.innerHTML = `<td colspan="${
+            columns.length + 1
+          }" class="p-6 text-center text-gray-400">No active patients.</td>`;
+          fragment.appendChild(emptyRow);
+        }
+
+        tbody.appendChild(fragment);
+        attachReportScrollHandler(type);
       }
+
+      const attachReportScrollHandler = (type) => {
+        const container = document.querySelector(`#${type}-report-container .overflow-x-auto`);
+        if (!container) return;
+        if (!container.dataset.scrollWatcherAttached) {
+          container.addEventListener('scroll', () => updateReportHeaderVisibility(type, container));
+          container.dataset.scrollWatcherAttached = 'true';
+        }
+        updateReportHeaderVisibility(type, container);
+      };
+
+      const updateReportHeaderVisibility = (type, container) => {
+        const headerCell = document.getElementById(`${type}-patient-header`);
+        if (!headerCell) return;
+        const label = headerCell.querySelector('.patient-header-label');
+        if (!headerCell.dataset.baseBg || !headerCell.dataset.baseShadow) {
+          const computed = window.getComputedStyle(headerCell);
+          headerCell.dataset.baseBg = computed.backgroundColor || '';
+          headerCell.dataset.baseShadow = computed.boxShadow || '';
+        }
+        const isScrolled = container.scrollLeft > 0;
+        if (label) label.style.opacity = isScrolled ? '0' : '1';
+        headerCell.style.backgroundColor = isScrolled ? 'transparent' : headerCell.dataset.baseBg;
+        headerCell.style.boxShadow = isScrolled ? 'none' : headerCell.dataset.baseShadow;
+      };
+
+      window.toggleReportRows = function (type) {
+        if (!window.reportTableState || !window.reportTableState[type]) return;
+        const state = window.reportTableState[type];
+        state.showAll = !state.showAll;
+
+        const rows = document.querySelectorAll(`.report-normal-row-${type}`);
+        rows.forEach((row) => {
+          if (state.showAll) row.classList.remove('hidden');
+          else row.classList.add('hidden');
+        });
+
+        const btn = document.getElementById(`report-toggle-btn-${type}`);
+        if (btn) {
+          const count = btn.dataset.count || rows.length || 0;
+          btn.innerHTML = state.showAll
+            ? '<i class="fas fa-eye-slash"></i> Hide On-Track Patients'
+            : `<i class="fas fa-eye"></i> Show ${count} On-Track Patients`;
+        }
+      };
 
       // --- Layout Saving Logic ---
       function markLayoutDirty() {
