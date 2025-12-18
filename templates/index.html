@@ -1542,6 +1542,7 @@
           const receivedAmount = formatCurrency(
             parseInt(String(p.receivedAmount || '0').replace(/,/g, '') || 0)
           );
+          const areaDisplay = p.area || p.address || '-';
 
           // Hide discharge button if already discharged
           const dischargeBtn =
@@ -1594,10 +1595,10 @@
                             <td class="px-3 py-2 text-gray-600 whitespace-nowrap">${
                               p.contactNo || '-'
                             }</td>
+                            <td class="px-3 py-2 text-gray-600 whitespace-nowrap">${areaDisplay}</td>
                             <td class="px-3 py-2 font-semibold text-green-700 whitespace-nowrap">${fee}</td>
                             <td class="px-3 py-2 text-gray-600 whitespace-nowrap text-xs">${formattedAdmissionDate}</td>
                             <td class="px-3 py-2 text-center text-gray-700 font-medium whitespace-nowrap text-xs">${daysProgress}</td>
-                            <td class="px-3 py-2 text-center text-gray-700 whitespace-nowrap text-xs">${daysElapsed} days</td>
                             <td class="px-3 py-2 font-semibold text-blue-700 whitespace-nowrap">${receivedAmount}</td>
                             <td class="px-3 py-2 text-gray-600 whitespace-nowrap">${
                               p.drug || '-'
@@ -1614,10 +1615,10 @@
                             <td class="px-3 py-2 text-gray-600 whitespace-nowrap">${
                               p.contactNo || '-'
                             }</td>
+                            <td class="px-3 py-2 text-gray-600 whitespace-nowrap">${areaDisplay}</td>
                             <td class="px-3 py-2 font-semibold text-green-700 whitespace-nowrap">${fee}</td>
                             <td class="px-3 py-2 text-gray-600 whitespace-nowrap text-xs">${formattedAdmissionDate}</td>
                             <td class="px-3 py-2 text-center text-gray-700 font-medium whitespace-nowrap text-xs">${daysProgress}</td>
-                            <td class="px-3 py-2 text-center text-gray-700 whitespace-nowrap text-xs">${daysElapsed} days</td>
                             <td class="px-3 py-2 font-semibold text-blue-700 whitespace-nowrap">${receivedAmount}</td>
                             <td class="px-3 py-2 text-gray-600 whitespace-nowrap">${
                               p.drug || '-'
@@ -1681,6 +1682,7 @@
           contactNo: document.getElementById('new-patient-contact').value,
           guardianName: document.getElementById('new-patient-guardian').value,
           address: document.getElementById('new-patient-address').value,
+          area: document.getElementById('new-patient-area').value || '',
           monthlyFee: document.getElementById('new-patient-fee').value || '0',
           monthlyAllowance: document.getElementById('new-patient-allowance').value || '3000',
           receivedAmount: document.getElementById('new-patient-received').value || '0',
@@ -1835,6 +1837,7 @@
         setVal('det-guardian', p.guardianName);
         setVal('det-relation', p.relation);
         setVal('det-address', p.address);
+        setVal('det-area', p.area);
         setVal('det-complaint', p.complaint);
         setVal('det-drug', p.drug);
         setVal('det-prev', p.prevAdmissions);
@@ -1991,6 +1994,7 @@
           contactNo: document.getElementById('det-contact').value,
           guardianName: document.getElementById('det-guardian').value,
           address: document.getElementById('det-address').value,
+          area: document.getElementById('det-area').value,
           complaint: document.getElementById('det-complaint').value,
           photo1: document.getElementById('det-photo1-hidden').value,
           photo2: document.getElementById('det-photo2-hidden').value,
@@ -2870,26 +2874,62 @@
 
       // --- DAILY REPORT LOGIC (UPDATED) ---
 
-      // Default configuration (Key must be unique, Label is what is displayed/edited)
-      let DAY_CONFIG = [
-        { key: 'slot_0900', label: '09:00AM' },
-        { key: 'slot_1000', label: '10:00AM' },
-        { key: 'slot_1100', label: '11:00AM' },
-        { key: 'slot_1200', label: '12:00PM' },
+      const DAY_COLUMN_ORDER = [
+        'slot_bkfst',
+        'slot_0900',
+        'slot_1000',
+        'slot_1100',
+        'slot_1200',
+        'slot_1300',
+        'slot_1400',
+        'slot_1500',
+        'slot_1600',
+        'slot_med_day',
+      ];
+
+      const NIGHT_COLUMN_ORDER = [
+        'slot_1700',
+        'slot_1800',
+        'slot_1900',
+        'slot_2000',
+        'slot_2100',
+        'slot_beh',
+        'slot_2200',
+        'slot_2300',
+        'slot_0000',
+        'slot_0100',
+        'slot_0200',
+        'slot_0300',
+        'slot_0400',
+        'slot_0500',
+        'slot_0600',
+        'slot_0700',
+        'slot_0800',
+        'slot_med_night',
+      ];
+
+      const NIGHT_EXCLUSIVE_KEYS = new Set(['slot_1700', 'slot_1800', 'slot_1900', 'slot_2000']);
+
+      const DEFAULT_DAY_CONFIG = [
+        { key: 'slot_bkfst', label: '08:00 AM' },
+        { key: 'slot_0900', label: '09:00 AM' },
+        { key: 'slot_1000', label: '10:00 AM' },
+        { key: 'slot_1100', label: '11:00 AM' },
+        { key: 'slot_1200', label: '12:00 PM' },
         { key: 'slot_1300', label: '01:00 PM' },
         { key: 'slot_1400', label: '02:00 PM' },
         { key: 'slot_1500', label: '03:00 PM' },
         { key: 'slot_1600', label: '04:00 PM' },
+        { key: 'slot_med_day', label: 'Day Medicine' },
+      ];
+
+      const DEFAULT_NIGHT_CONFIG = [
         { key: 'slot_1700', label: '05:00 PM' },
         { key: 'slot_1800', label: '06:00 PM' },
         { key: 'slot_1900', label: '07:00 PM' },
         { key: 'slot_2000', label: '08:00 PM' },
-        { key: 'slot_bkfst', label: 'Breakfast' },
-        { key: 'slot_med_day', label: 'Medicine' },
-      ];
-
-      let NIGHT_CONFIG = [
         { key: 'slot_2100', label: '09:00 PM' },
+        { key: 'slot_beh', label: '09:30 PM' },
         { key: 'slot_2200', label: '10:00 PM' },
         { key: 'slot_2300', label: '11:00 PM' },
         { key: 'slot_0000', label: '12:00 AM' },
@@ -2901,9 +2941,77 @@
         { key: 'slot_0600', label: '06:00 AM' },
         { key: 'slot_0700', label: '07:00 AM' },
         { key: 'slot_0800', label: '08:00 AM' },
-        { key: 'slot_med_night', label: 'Medicine' },
-        { key: 'slot_beh', label: 'Behavior' },
+        { key: 'slot_med_night', label: 'Night Medicine' },
       ];
+
+      let DAY_CONFIG = [...DEFAULT_DAY_CONFIG];
+      let NIGHT_CONFIG = [...DEFAULT_NIGHT_CONFIG];
+
+      const escapeHtml = (str = '') =>
+        String(str)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+
+      const COLUMN_ACTIVITY_MAP = {
+        slot_bkfst: { time: '8 AM', activity: 'Breakfast' },
+        slot_0900: { time: '9 AM', activity: 'Quran / Yoga Class' },
+        slot_1000: { time: '10 AM', activity: 'Dr. Round' },
+        slot_1100: { time: '11 AM', activity: 'Group Therapy' },
+        slot_1200: { time: '12 PM', activity: 'Group Therapy' },
+        slot_1300: { time: '1 PM', activity: 'Namaz' },
+        slot_1400: { time: '2 PM', activity: 'Lunch' },
+        slot_1500: { time: '3 PM', activity: 'Dr. Round' },
+        slot_1600: { time: '4 PM', activity: 'TV Time' },
+        slot_1700: { time: '5 PM', activity: 'Namaz' },
+        slot_1800: { time: '6 PM', activity: 'Group Therapy' },
+        slot_1900: { time: '7 PM', activity: 'Namaz' },
+        slot_2000: { time: '8 PM', activity: 'Dinner' },
+        slot_2100: { time: '9 PM', activity: 'Namaz / Medicine' },
+        slot_beh: { time: '9:30 PM', activity: 'Lights Off' },
+      };
+
+      const orderColumns = (columns, desiredOrder) => {
+        if (!Array.isArray(columns)) return [];
+        const columnMap = new Map(columns.map((col) => [col.key, col]));
+        const ordered = [];
+        desiredOrder.forEach((key) => {
+          if (columnMap.has(key)) {
+            ordered.push(columnMap.get(key));
+            columnMap.delete(key);
+          }
+        });
+        return [...ordered, ...columnMap.values()];
+      };
+
+      const mergeWithDefaults = (columns, defaults, order) => {
+        const baseMap = new Map(defaults.map((col) => [col.key, { ...col }]));
+        if (Array.isArray(columns)) {
+          columns.forEach((col) => {
+            baseMap.set(col.key, { ...(baseMap.get(col.key) || {}), ...col });
+          });
+        }
+        return orderColumns(Array.from(baseMap.values()), order);
+      };
+
+      DAY_CONFIG = mergeWithDefaults(DAY_CONFIG, DEFAULT_DAY_CONFIG, DAY_COLUMN_ORDER);
+      NIGHT_CONFIG = mergeWithDefaults(NIGHT_CONFIG, DEFAULT_NIGHT_CONFIG, NIGHT_COLUMN_ORDER);
+
+      const enforceColumnPlacement = () => {
+        DAY_CONFIG = DAY_CONFIG.filter((col) => !NIGHT_EXCLUSIVE_KEYS.has(col.key));
+        const nightKeys = new Set(NIGHT_CONFIG.map((col) => col.key));
+        NIGHT_EXCLUSIVE_KEYS.forEach((key) => {
+          if (!nightKeys.has(key)) {
+            const fallback = DEFAULT_NIGHT_CONFIG.find((col) => col.key === key);
+            if (fallback) NIGHT_CONFIG.push({ ...fallback });
+          }
+        });
+        NIGHT_CONFIG = orderColumns(NIGHT_CONFIG, NIGHT_COLUMN_ORDER);
+      };
+
+      enforceColumnPlacement();
 
       async function loadDailyReport() {
         const datePicker = document.getElementById('report-date-picker');
@@ -2920,12 +3028,35 @@
           const configRes = await fetch('/api/reports/config');
           if (configRes.ok) {
             const config = await configRes.json();
-            if (config.day_columns) DAY_CONFIG = config.day_columns;
-            if (config.night_columns) NIGHT_CONFIG = config.night_columns;
+            DAY_CONFIG = mergeWithDefaults(
+              config.day_columns,
+              DEFAULT_DAY_CONFIG,
+              DAY_COLUMN_ORDER
+            );
+            NIGHT_CONFIG = mergeWithDefaults(
+              config.night_columns,
+              DEFAULT_NIGHT_CONFIG,
+              NIGHT_COLUMN_ORDER
+            );
+          } else {
+            DAY_CONFIG = mergeWithDefaults(
+              undefined,
+              DEFAULT_DAY_CONFIG,
+              DAY_COLUMN_ORDER
+            );
+            NIGHT_CONFIG = mergeWithDefaults(
+              undefined,
+              DEFAULT_NIGHT_CONFIG,
+              NIGHT_COLUMN_ORDER
+            );
           }
         } catch (e) {
+          DAY_CONFIG = mergeWithDefaults(undefined, DEFAULT_DAY_CONFIG, DAY_COLUMN_ORDER);
+          NIGHT_CONFIG = mergeWithDefaults(undefined, DEFAULT_NIGHT_CONFIG, NIGHT_COLUMN_ORDER);
           console.error('Config load error', e);
         }
+
+        enforceColumnPlacement();
 
         // 2. Fetch Active Patients
         if (typeof patientsData === 'undefined' || patientsData.length === 0) await fetchPatients();
@@ -3018,16 +3149,31 @@
         const headerRow = document.getElementById(`${type}-header-row`);
         const tbody = document.getElementById(`${type}-table-body`);
         const isAdmin = currentUser.role === 'Admin';
-        const contentEditable = isAdmin ? 'contenteditable="true"' : '';
+        const accentClass = type === 'day' ? 'text-emerald-100' : 'text-indigo-200';
 
         // Build Headers
         let headersHtml =
           '<th class="px-4 py-3 text-left whitespace-nowrap sticky left-0 z-10 shadow-md" style="background-color: inherit;">Patient Name</th>';
         columns.forEach((col, index) => {
-          // We use data-key to identify the column, but display the label
-          headersHtml += `<th ${contentEditable} data-idx="${index}" onblur="markLayoutDirty()" 
-                class="px-2 py-3 text-center whitespace-nowrap text-xs font-semibold min-w-[70px] border-l border-white/20 hover:bg-white/10 cursor-text">
-                ${col.label}
+          const meta = COLUMN_ACTIVITY_MAP[col.key];
+          const isEditableColumn = isAdmin && !meta;
+          const editableAttr = isEditableColumn ? 'contenteditable="true"' : '';
+          const blurAttr = isEditableColumn ? 'onblur="markLayoutDirty()"' : '';
+          const cursorClass = isEditableColumn
+            ? 'cursor-text hover:bg-white/10'
+            : 'cursor-default hover:bg-white/5';
+          const titleText = meta
+            ? `${meta.time} • ${meta.activity}`
+            : col.label || '';
+          const titleAttr = titleText ? `title="${escapeHtml(titleText)}"` : '';
+          const headerContent = meta
+            ? `<div class="text-[0.75rem] md:text-sm font-semibold tracking-wide uppercase text-white leading-tight">${meta.time}</div>
+               <div class="text-[0.6rem] font-semibold ${accentClass} uppercase mt-0.5 leading-tight">${meta.activity}</div>`
+            : `<span>${escapeHtml(col.label || '')}</span>`;
+
+            headersHtml += `<th ${editableAttr} data-idx="${index}" ${titleAttr} ${blurAttr}
+                class="px-2 py-3 text-center whitespace-nowrap text-xs font-semibold min-w-[70px] border-l border-white/20 ${cursorClass}">
+                ${headerContent}
             </th>`;
         });
         headerRow.innerHTML = headersHtml;
@@ -3116,6 +3262,7 @@
             // Update local memory
             DAY_CONFIG = newDayConfig;
             NIGHT_CONFIG = newNightConfig;
+            enforceColumnPlacement();
           }
         } catch (e) {
           showSuccessModal('Error saving layout', true);
@@ -3179,10 +3326,10 @@
 
         const sections = [];
         if (mode === 'day' || mode === 'both') {
-          sections.push(buildPrintableSection('Day Report (9 AM - 9 PM)', 'day'));
+          sections.push(buildPrintableSection('Day Report', 'day'));
         }
         if (mode === 'night' || mode === 'both') {
-          sections.push(buildPrintableSection('Night Report (9 PM - 9 AM)', 'night'));
+          sections.push(buildPrintableSection('Night Report', 'night'));
         }
 
         if (!sections.length) {
@@ -3552,7 +3699,7 @@
           <div id="day-report-container" class="mb-8">
             <div class="flex justify-between items-center mb-2 px-2">
               <h4 class="font-bold text-emerald-800 text-lg">
-                <i class="fas fa-sun mr-2 text-yellow-500"></i>Day Report (9 AM - 9 PM)
+                <i class="fas fa-sun mr-2 text-yellow-500"></i>Day Report
               </h4>
             </div>
             <div class="bg-white rounded-xl shadow-lg border border-emerald-100 overflow-hidden">
@@ -3573,7 +3720,7 @@
           <div id="night-report-container">
             <div class="flex justify-between items-center mb-2 px-2">
               <h4 class="font-bold text-indigo-900 text-lg">
-                <i class="fas fa-moon mr-2 text-indigo-500"></i>Night Report (9 PM - 9 AM)
+                <i class="fas fa-moon mr-2 text-indigo-500"></i>Night Report
               </h4>
             </div>
             <div class="bg-white rounded-xl shadow-lg border border-indigo-100 overflow-hidden">
@@ -3860,6 +4007,9 @@
                 >
                   Contact
                 </th>
+                <th class="px-3 py-2 text-left whitespace-nowrap font-semibold text-xs">
+                  Area
+                </th>
                 <th
                   id="header-fee"
                   class="px-3 py-2 text-left whitespace-nowrap font-semibold text-xs"
@@ -3871,9 +4021,6 @@
                 </th>
                 <th class="px-3 py-2 text-center whitespace-nowrap font-semibold text-xs">
                   Days Done
-                </th>
-                <th class="px-3 py-2 text-center whitespace-nowrap font-semibold text-xs">
-                  Days Elapsed
                 </th>
                 <th class="px-3 py-2 text-left whitespace-nowrap font-semibold text-xs">
                   Received Amt
@@ -3921,6 +4068,7 @@
                 <input id="det-contact" class="border p-2 rounded" placeholder="Contact" />
                 <input id="det-guardian" class="border p-2 rounded" placeholder="Guardian" />
                 <input id="det-relation" class="border p-2 rounded" placeholder="Relation" />
+                <input id="det-area" class="border p-2 rounded" placeholder="Area / City" />
                 <div class="md:col-span-2 lg:col-span-3">
                   <input id="det-address" class="border p-2 w-full rounded" placeholder="Address" />
                 </div>
@@ -4784,6 +4932,16 @@
                 id="new-patient-contact"
                 class="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent"
                 placeholder="03XX-XXXXXXX"
+              />
+            </div>
+
+            <div>
+              <label class="block text-sm font-semibold text-gray-700 mb-1">Area / City</label>
+              <input
+                type="text"
+                id="new-patient-area"
+                class="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                placeholder="e.g., DHA Phase 6"
               />
             </div>
 
