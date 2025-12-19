@@ -175,51 +175,81 @@ def get_dashboard_metrics():
     if not check_db(): return jsonify({"error": "Database error"}), 500
     
     today = datetime.now()
-    # Start of current month
     start_of_month = today.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    # End of current month (tomorrow at 00:00 or end of month)
+    
     if today.month == 12:
         end_of_month = today.replace(year=today.year + 1, month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
     else:
         end_of_month = today.replace(month=today.month + 1, day=1, hour=0, minute=0, second=0, microsecond=0)
     
     try:
-        # 1. Total Patients
+        # 1. Basic Counts
         total_patients = mongo.db.patients.count_documents({})
-
-        # 2. Admissions This Month (from 1st to end of current month)
         admissions_this_month = mongo.db.patients.count_documents({
             'created_at': {'$gte': start_of_month, '$lt': end_of_month}
         })
-        
-        # 2.5 Discharges This Month
         discharges_this_month = mongo.db.patients.count_documents({
             'isDischarged': True,
             'dischargeDate': {'$gte': start_of_month.isoformat(), '$lt': end_of_month.isoformat()}
         })
         
-        # 3. Total Income This Month (sum of Monthly Fees from all active patients)
-        # Note: This is a snapshot of current fees, not historical
-        active_patients = mongo.db.patients.find()
+        # 2. Total Expected Incoming (Remaining Balance Calculation)
+        # Fetch ALL canteen sales first to create a map
+        # Note: We group by patient_id. We convert ObjectId to string for easy matching.
+        all_canteen_sales = list(mongo.db.canteen_sales.find())
+        canteen_map = {}
+        
+        for sale in all_canteen_sales:
+            # Handle patient_id whether it's ObjectId or String
+            pid = str(sale.get('patient_id', ''))
+            amount = int(sale.get('amount', 0))
+            if pid:
+                canteen_map[pid] = canteen_map.get(pid, 0) + amount
+
+        # Fetch Active Patients
+        active_patients = list(mongo.db.patients.find({'isDischarged': {'$ne': True}}))
+        
         total_income_this_month = 0
+        
+        print("\n--- DEBUGGING OVERHEAD CALCULATION ---")
         for p in active_patients:
             try:
-                fee = int(p.get('monthlyFee', '0').replace(',', ''))
-                total_income_this_month += fee
-            except ValueError:
-                pass # Ignore invalid fees
+                pid = str(p['_id'])
+                name = p.get('name', 'Unknown')
+                
+                # Helper to safely parse currency strings like "15,000" or ints like 15000
+                def safe_int(val):
+                    if val is None: return 0
+                    return int(str(val).replace(',', '').strip() or 0)
+
+                fee = safe_int(p.get('monthlyFee'))
+                laundry = safe_int(p.get('laundryAmount'))
+                received = safe_int(p.get('receivedAmount'))
+                canteen = canteen_map.get(pid, 0)
+                
+                total_bill = fee + laundry + canteen
+                balance = total_bill - received
+                
+                # Only count positive balances (money they owe us)
+                if balance > 0:
+                    total_income_this_month += balance
+                    print(f"Patient: {name} | Fee: {fee} + Lnd: {laundry} + Cant: {canteen} - Rec: {received} = Bal: {balance}")
+                else:
+                    print(f"Patient: {name} | Balance is 0 or negative ({balance}) - Ignoring")
+
+            except Exception as e:
+                print(f"Error calculating for {p.get('name')}: {e}")
         
-        # 4. Total Canteen Sales This Month (from 1st to end of current month)
-        pipeline = [
+        print(f"TOTAL EXPECTED INCOMING: {total_income_this_month}")
+        print("--------------------------------------\n")
+
+        # 3. Canteen Sales This Month (KPI Card)
+        pipeline_month = [
             {'$match': {'date': {'$gte': start_of_month, '$lt': end_of_month}}},
             {'$group': {'_id': None, 'total_sales': {'$sum': '$amount'}}}
         ]
-        canteen_sales_result = list(mongo.db.canteen_sales.aggregate(pipeline))
-        total_canteen_sales_this_month = canteen_sales_result[0]['total_sales'] if canteen_sales_result else 0
-        
-        # Debug logging
-        print(f"[Dashboard Metrics] Month range: {start_of_month} to {end_of_month}")
-        print(f"[Dashboard Metrics] Patients: {total_patients}, Admissions: {admissions_this_month}, Income: {total_income_this_month}, Canteen: {total_canteen_sales_this_month}")
+        canteen_month_res = list(mongo.db.canteen_sales.aggregate(pipeline_month))
+        total_canteen_sales_this_month = canteen_month_res[0]['total_sales'] if canteen_month_res else 0
         
         return jsonify({
             'totalPatients': total_patients,
@@ -1132,12 +1162,14 @@ def add_patient_payment(id):
     try:
         data = request.json
         amount_paid = int(data.get('amount', 0))
+        payment_method = data.get('payment_method', 'Cash') # Cash or Online
+        screenshot = data.get('screenshot', '') # Base64 string if Online
         
         patient = mongo.db.patients.find_one({'_id': ObjectId(id)})
         if not patient:
             return jsonify({"error": "Patient not found"}), 404
 
-        # 1. Parse existing received amount (remove commas if present)
+        # 1. Parse existing received amount
         current_received_str = str(patient.get('receivedAmount', '0')).replace(',', '')
         try:
             current_received = int(current_received_str)
@@ -1153,13 +1185,15 @@ def add_patient_payment(id):
             {'$set': {'receivedAmount': str(new_total)}}
         )
 
-        # 4. Optional: Log as an Incoming Expense automatically
-        expense_note = f"Partial payment from {patient.get('name')}"
+        # 4. Log as an Incoming Expense automatically
+        expense_note = f"Partial payment from {patient.get('name')} via {payment_method}"
         mongo.db.expenses.insert_one({
             'type': 'incoming',
             'amount': amount_paid,
             'category': 'Patient Fee',
             'note': expense_note,
+            'payment_method': payment_method,
+            'screenshot': screenshot, # Store proof if available
             'date': datetime.now(),
             'recorded_by': session.get('username', 'Admin'),
             'auto': True
@@ -1169,6 +1203,7 @@ def add_patient_payment(id):
     except Exception as e:
         print(f"Payment Error: {e}")
         return jsonify({"error": str(e)}), 500
+
 
 # --- DAILY REPORT APIS ---
 
