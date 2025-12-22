@@ -3427,7 +3427,7 @@
 
           columns.forEach((col) => {
             const status = schedules[col.key];
-            if (status === 'not_done' || status === 'complaint') hasIssue = true;
+            if (status === 'complaint') hasIssue = true;
             const cellClass = getStatusClass(status);
             const icon = getStatusIcon(status);
             const statusLabel = statusLabelMap[status] || 'No Status';
