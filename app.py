@@ -28,6 +28,23 @@ def check_db():
         return False
     return True
 
+def clean_input_data(data):
+    """Strip trailing and leading spaces from string values in a dictionary."""
+    if not isinstance(data, dict):
+        return data
+    
+    cleaned = {}
+    for key, value in data.items():
+        if isinstance(value, str):
+            cleaned[key] = value.strip()
+        elif isinstance(value, dict):
+            cleaned[key] = clean_input_data(value)
+        elif isinstance(value, list):
+            cleaned[key] = [clean_input_data(item) if isinstance(item, dict) else item.strip() if isinstance(item, str) else item for item in value]
+        else:
+            cleaned[key] = value
+    return cleaned
+
 def ensure_initial_admin():
     """Checks for and creates the default admin user 'ImranSaab' on first run."""
     if check_db():
@@ -78,7 +95,7 @@ def index():
 @app.route('/api/auth/login', methods=['POST'])
 def login():
     if not check_db(): return jsonify({"error": "Database error"}), 500
-    data = request.json
+    data = clean_input_data(request.json)
     user = mongo.db.users.find_one({"username": data['username']})
     
     if user and check_password_hash(user['password'], data['password']):
@@ -123,7 +140,7 @@ def get_users():
 @role_required(['Admin'])
 def create_user():
     if not check_db(): return jsonify({"error": "Database error"}), 500
-    data = request.json
+    data = clean_input_data(request.json)
     if not all(k in data for k in ['username', 'password', 'role', 'name']):
         return jsonify({"error": "Missing fields"}), 400
     
@@ -153,7 +170,7 @@ def create_user():
 @login_required
 def change_password():
     if not check_db(): return jsonify({"error": "Database error"}), 500
-    data = request.json
+    data = clean_input_data(request.json)
     user_id = session['user_id']
     
     try:
@@ -344,7 +361,7 @@ def get_patients():
 def add_patient():
     if not check_db(): return jsonify({"error": "Database error"}), 500
     try:
-        data = request.json
+        data = clean_input_data(request.json)
         data['created_at'] = datetime.now()
         data['notes'] = [] # General Notes (Legacy)
         data['monthlyFee'] = data.get('monthlyFee', '0')
@@ -375,7 +392,7 @@ def add_patient():
 def update_patient(id):
     if not check_db(): return jsonify({"error": "Database error"}), 500
     try:
-        data = request.json
+        data = clean_input_data(request.json)
         if '_id' in data: del data['_id']
         
         # Only Admin can modify sensitive/financial fields
@@ -418,7 +435,7 @@ def delete_patient(id):
 def add_session_note(patient_id):
     if not check_db(): return jsonify({"error": "Database error"}), 500
     try:
-        data = request.json
+        data = clean_input_data(request.json)
         note = {
             'text': data['text'],
             'type': 'session_note',
@@ -436,7 +453,7 @@ def add_session_note(patient_id):
 def add_medical_record(patient_id):
     if not check_db(): return jsonify({"error": "Database error"}), 500
     try:
-        data = request.json
+        data = clean_input_data(request.json)
         record = {
             'title': data['title'],
             'details': data['details'],
@@ -472,7 +489,7 @@ def get_patient_records(patient_id):
 @role_required(['Admin', 'Canteen'])
 def record_canteen_sale():
     if not check_db(): return jsonify({"error": "Database error"}), 500
-    data = request.json
+    data = clean_input_data(request.json)
     if not all(k in data for k in ['patient_id', 'amount', 'item']):
         return jsonify({"error": "Missing fields"}), 400
     
@@ -635,7 +652,7 @@ def list_expenses():
 def add_expense():
     if not check_db():
         return jsonify({"error": "Database error"}), 500
-    data = request.json or {}
+    data = clean_input_data(request.json or {})
     required = ['type', 'amount', 'category']
     if not all(k in data for k in required):
         return jsonify({"error": "Missing fields"}), 400
@@ -887,7 +904,7 @@ def add_call_meeting_entry():
     """Add or update a call/meeting entry"""
     if not check_db(): return jsonify({"error": "Database error"}), 500
     
-    data = request.json
+    data = clean_input_data(request.json)
     if not all(k in data for k in ['name', 'day', 'month', 'year', 'type', 'date_of_admission']):
         return jsonify({"error": "Missing fields"}), 400
     
@@ -1012,7 +1029,7 @@ def get_utility_bills():
 @role_required(['Admin'])
 def add_utility_bill():
     if not check_db(): return jsonify({"error": "Database error"}), 500
-    data = request.json
+    data = clean_input_data(request.json)
     try:
         bill = {
             'type': data.get('type', 'Other'), # Electricity, Gas, etc.
@@ -1083,7 +1100,7 @@ def get_employees():
 @role_required(['Admin'])
 def add_employee():
     if not check_db(): return jsonify({"error": "Database error"}), 500
-    data = request.json
+    data = clean_input_data(request.json)
     try:
         employee = {
             'name': data.get('name'),
@@ -1105,7 +1122,7 @@ def add_employee():
 @role_required(['Admin'])
 def update_employee(id):
     if not check_db(): return jsonify({"error": "Database error"}), 500
-    data = request.json
+    data = clean_input_data(request.json)
     # Remove _id from data if present to avoid immutable field error
     if '_id' in data: del data['_id']
     try:
@@ -1130,7 +1147,7 @@ def delete_employee(id):
 def add_patient_payment(id):
     if not check_db(): return jsonify({"error": "Database error"}), 500
     try:
-        data = request.json
+        data = clean_input_data(request.json)
         amount_paid = int(data.get('amount', 0))
         
         patient = mongo.db.patients.find_one({'_id': ObjectId(id)})
@@ -1200,7 +1217,7 @@ def get_daily_report():
 def update_daily_report():
     if not check_db(): return jsonify({"error": "Database error"}), 500
     
-    data = request.json
+    data = clean_input_data(request.json)
     # Expected: { date, patient_id, time_slot, status }
     # status enum: 'done', 'not_done', 'complaint', ''
     
@@ -1242,7 +1259,7 @@ def get_report_config():
 @role_required(['Admin'])
 def save_report_config():
     if not check_db(): return jsonify({"error": "Database error"}), 500
-    data = request.json
+    data = clean_input_data(request.json)
     try:
         # Save day_columns and night_columns
         mongo.db.report_config.update_one(
