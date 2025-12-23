@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>PRO - Pakistan Recovery Oasis HMS</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
@@ -600,6 +599,7 @@
       let patientsData = [];
       let patientsSearchTerm = '';
       let accountsData = [];
+      let receiptPatientOptions = [];
       const dischargedPatientIds = new Set();
       const photoBuffers = {
         new: { photo1: '', photo2: '', photo3: '' },
@@ -680,7 +680,9 @@
             const data = await res.json();
             if (data.is_logged_in) {
               currentUser = data;
-              document.getElementById('logged-in-user').innerText = `${data.name} (${data.role})`;
+              document.getElementById('logged-in-user').innerText = `${
+                data.name || data.username
+              } (${data.role})`;
               return true;
             }
           }
@@ -831,10 +833,9 @@
       };
 
       // --- CALL & MEETING TRACKER ---
-      window.callMeetingChart = null;
       let currentCallMeetingRecords = [];
 
-      window.printCallMeetingChart = function () {
+      window.printCallMeetingReport = function () {
         if (!currentCallMeetingRecords || currentCallMeetingRecords.length === 0) {
           showSuccessModal('No data to print.', true);
           return;
@@ -1001,10 +1002,33 @@
           const month = today.getMonth() + 1;
           const year = today.getFullYear();
 
+          // Update month label
+          const monthNames = [
+            'January',
+            'February',
+            'March',
+            'April',
+            'May',
+            'June',
+            'July',
+            'August',
+            'September',
+            'October',
+            'November',
+            'December',
+          ];
+          const monthLabel = document.getElementById('call-meeting-month-label');
+          if (monthLabel) {
+            monthLabel.innerText = `Track calls, meetings, and text interactions for ${
+              monthNames[month - 1]
+            } ${year}`;
+          }
+
           // Fetch all records
           const res = await fetch('/api/call_meeting_tracker');
           if (!res.ok) return;
           const records = await res.json();
+          currentCallMeetingRecords = records;
 
           // Fetch summary
           const summaryRes = await fetch(`/api/call_meeting_tracker/summary/${month}/${year}`);
@@ -1017,9 +1041,6 @@
 
           // Render table
           renderCallMeetingTable(records);
-
-          // Render chart
-          renderCallMeetingChart(records);
         } catch (e) {
           console.error('Call/Meeting Load Error', e);
         }
@@ -1035,122 +1056,96 @@
       }
 
       function renderCallMeetingTable(records) {
+        const headerRow = document.getElementById('call_meeting_header_row');
         const tbody = document.getElementById('call_meeting_table_body');
+
+        // Get current month info
+        const today = new Date();
+        const currentMonth = today.getMonth();
+        const currentYear = today.getFullYear();
+        const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+
+        // Build headers - Name column + days of month
+        let headersHtml = `<th class="px-4 py-3 text-left whitespace-nowrap sticky left-0 z-20 shadow-md bg-emerald-600 text-white" style="min-width: 180px;">
+                            <span class="font-semibold tracking-wide text-sm">Patient Name</span>
+                          </th>`;
+
+        for (let day = 1; day <= daysInMonth; day++) {
+          const isToday = day === today.getDate();
+          const todayClass = isToday ? 'ring-2 ring-yellow-400' : '';
+          headersHtml += `<th class="px-2 py-3 text-center whitespace-nowrap text-xs font-semibold min-w-[50px] border-l border-white/20 ${todayClass}">
+                            <div class="text-sm font-bold">${day}</div>
+                          </th>`;
+        }
+        headerRow.innerHTML = headersHtml;
+
+        // Group records by name
+        const groupedByName = {};
+        if (records && records.length > 0) {
+          records.forEach((r) => {
+            if (!groupedByName[r.name]) {
+              groupedByName[r.name] = {
+                name: r.name,
+                date_of_admission: r.date_of_admission,
+                days: {},
+              };
+            }
+            // Store the record for this day
+            groupedByName[r.name].days[r.day] = { type: r.type, id: r._id };
+          });
+        }
+
         tbody.innerHTML = '';
 
-        if (!records || records.length === 0) {
-          tbody.innerHTML =
-            '<tr><td colspan="5" class="p-6 text-center text-gray-400">No records found.</td></tr>';
+        const names = Object.keys(groupedByName);
+        if (names.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="${
+            daysInMonth + 1
+          }" class="p-6 text-center text-gray-400">No records found for this month.</td></tr>`;
           return;
         }
 
-        records.forEach((r) => {
+        // Build rows for each person
+        names.forEach((name) => {
+          const person = groupedByName[name];
           const tr = document.createElement('tr');
-          const typeColor =
-            {
-              Call: 'bg-emerald-100 text-emerald-800',
-              Meeting: 'bg-blue-100 text-blue-800',
-              Text: 'bg-amber-100 text-amber-800',
-            }[r.type] || 'bg-gray-100 text-gray-800';
-          const formattedDate = getFormattedDateFromDay(r.day, r.month, r.year);
+          tr.className = 'hover:bg-gray-50 transition';
 
-          tr.className = 'hover:bg-emerald-50 transition';
-          tr.innerHTML = `
-            <td class="px-6 py-4 font-medium whitespace-nowrap text-gray-800">${r.name}</td>
-            <td class="px-6 py-4 text-gray-600 whitespace-nowrap">${r.date_of_admission}</td>
-            <td class="px-6 py-4 text-center font-semibold text-gray-700">${formattedDate}</td>
-            <td class="px-6 py-4 text-center">
-              <span class="px-3 py-1 text-xs rounded-full font-semibold ${typeColor}">${r.type}</span>
-            </td>
-            <td class="px-6 py-4 text-center">
-              <button onclick="openCallMeetingDeleteModal('${r._id}')" class="text-emerald-600 hover:text-emerald-800 hover:bg-emerald-100 p-2 rounded transition text-sm">
-                <i class="fas fa-trash"></i>
-              </button>
-            </td>
-          `;
-          tbody.appendChild(tr);
-        });
-      }
+          let rowHtml = `<td class="px-4 py-2 font-bold text-emerald-900 bg-emerald-50 sticky left-0 border-r z-20 whitespace-nowrap text-xs md:text-sm max-w-[220px]" style="min-width: 180px;">
+                          <span class="block truncate">${escapeHtml(person.name)}</span>
+                         </td>`;
 
-      function renderCallMeetingChart(records) {
-        currentCallMeetingRecords = records;
+          for (let day = 1; day <= daysInMonth; day++) {
+            const dayData = person.days[day];
+            let cellClass = 'bg-gray-50';
+            let cellContent = '';
+            let cellTitle = 'No entry';
 
-        if (!records || records.length === 0) {
-          const canvas = document.getElementById('callMeetingChart');
-          const ctx = canvas.getContext('2d');
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-          return;
-        }
+            if (dayData) {
+              if (dayData.type === 'Call') {
+                cellClass = 'bg-blue-100 border border-blue-500';
+                cellContent = '<i class="fas fa-phone text-blue-600 text-xs"></i>';
+                cellTitle = 'Call';
+              } else if (dayData.type === 'Meeting') {
+                cellClass = 'bg-green-100 border border-green-500';
+                cellContent = '<i class="fas fa-handshake text-green-600 text-xs"></i>';
+                cellTitle = 'Meeting';
+              } else if (dayData.type === 'Text') {
+                cellClass = 'bg-amber-100 border border-amber-500';
+                cellContent = '<i class="fas fa-comment text-amber-600 text-xs"></i>';
+                cellTitle = 'Text';
+              }
+            }
 
-        // Group by day and type
-        const chartData = {};
-        records.forEach((r) => {
-          const day = r.day;
-          if (!chartData[day]) {
-            chartData[day] = { Call: 0, Meeting: 0, Text: 0 };
+            rowHtml += `<td class="p-1 border text-center align-middle">
+                          <div class="w-full h-8 rounded flex items-center justify-center ${cellClass}" title="${cellTitle}">
+                            ${cellContent}
+                          </div>
+                        </td>`;
           }
-          chartData[day][r.type]++;
-        });
 
-        const days = Object.keys(chartData).sort((a, b) => parseInt(a) - parseInt(b));
-        const calls = days.map((d) => chartData[d]['Call'] || 0);
-        const meetings = days.map((d) => chartData[d]['Meeting'] || 0);
-        const texts = days.map((d) => chartData[d]['Text'] || 0);
-
-        const ctx = document.getElementById('callMeetingChart').getContext('2d');
-        const today = new Date();
-
-        if (window.callMeetingChart) {
-          window.callMeetingChart.destroy();
-        }
-
-        window.callMeetingChart = new Chart(ctx, {
-          type: 'bar',
-          data: {
-            labels: days.map((d) =>
-              getFormattedDateFromDay(d, today.getMonth() + 1, today.getFullYear())
-            ),
-            datasets: [
-              {
-                label: 'Calls',
-                data: calls,
-                backgroundColor: '#3b82f6',
-                borderColor: '#1d4ed8',
-                borderWidth: 1,
-              },
-              {
-                label: 'Meetings',
-                data: meetings,
-                backgroundColor: '#10b981',
-                borderColor: '#059669',
-                borderWidth: 1,
-              },
-              {
-                label: 'Texts',
-                data: texts,
-                backgroundColor: '#a855f7',
-                borderColor: '#7e22ce',
-                borderWidth: 1,
-              },
-            ],
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            scales: {
-              y: {
-                beginAtZero: true,
-                ticks: {
-                  stepSize: 1,
-                },
-              },
-            },
-            plugins: {
-              legend: {
-                position: 'top',
-              },
-            },
-          },
+          tr.innerHTML = rowHtml;
+          tbody.appendChild(tr);
         });
       }
 
@@ -1504,7 +1499,7 @@
             : 'No records found.';
           tbody.innerHTML = `
             <tr>
-              <td colspan="11" class="p-6 text-center text-gray-400">${emptyMessage}</td>
+              <td colspan="12" class="p-6 text-center text-gray-400">${emptyMessage}</td>
             </tr>`;
           return;
         }
@@ -1542,19 +1537,32 @@
           };
 
           const isAdmin = currentUser.role === 'Admin';
-          const fee = formatCurrency(parseInt(String(p.monthlyFee || '0').replace(/,/g, '') || 0));
-          const receivedAmount = formatCurrency(
-            parseInt(String(p.receivedAmount || '0').replace(/,/g, '') || 0)
-          );
+          const feeValue = parseInt(String(p.monthlyFee || '0').replace(/,/g, ''), 10) || 0;
+          const fee = formatCurrency(feeValue);
+          const receivedValue =
+            parseInt(String(p.receivedAmount || '0').replace(/,/g, ''), 10) || 0;
+          const receivedAmount = formatCurrency(receivedValue);
+          const pendingValue = feeValue - receivedValue;
+          const pendingAmount = formatCurrency(pendingValue);
           const areaDisplay = p.area || p.address || '-';
+          const drugDisplay = p.drug || '-';
 
-          // Hide discharge button if already discharged
-          const dischargeBtn =
-            currentUser.role === 'Admin' && !isDischarged
-              ? `<button class="action-btn bg-gray-800 hover:bg-gray-900 text-white px-3 py-1 rounded text-xs shadow transition font-semibold" onclick="event.stopPropagation(); handleDischargeFromTable('${id}');"><i class="fas fa-print mr-1"></i>Discharge</button>`
-              : isDischarged
-              ? '<span class="text-xs font-bold uppercase border border-gray-300 px-2 py-1 rounded">Discharged</span>'
-              : '';
+          let actionControls = '';
+          if (currentUser.role === 'Admin') {
+            if (isDischarged) {
+              actionControls = `<div class="flex flex-col items-end gap-1">
+                  <span class="text-xs font-bold uppercase border border-gray-300 px-2 py-1 rounded bg-white/50">Discharged</span>
+                  <button class="action-btn bg-white text-emerald-700 border border-emerald-200 px-3 py-1 rounded text-xs shadow-sm hover:bg-emerald-50 transition font-semibold" onclick="event.stopPropagation(); revertDischargeFromTable('${id}');">
+                    <i class="fas fa-undo mr-1"></i>Restore
+                  </button>
+                </div>`;
+            } else {
+              actionControls = `<button class="action-btn bg-gray-800 hover:bg-gray-900 text-white px-3 py-1 rounded text-xs shadow transition font-semibold" onclick="event.stopPropagation(); handleDischargeFromTable('${id}');"><i class="fas fa-print mr-1"></i>Discharge</button>`;
+            }
+          } else if (isDischarged) {
+            actionControls =
+              '<span class="text-xs font-bold uppercase border border-gray-300 px-2 py-1 rounded">Discharged</span>';
+          }
 
           // Generate serial number
           const admissionDate = p.admissionDate ? new Date(p.admissionDate) : new Date();
@@ -1600,14 +1608,15 @@
                               p.contactNo || '-'
                             }</td>
                             <td class="px-3 py-2 text-gray-600 whitespace-nowrap">${areaDisplay}</td>
+                            <td class="px-3 py-2 text-gray-600 whitespace-nowrap">${drugDisplay}</td>
                             <td class="px-3 py-2 font-semibold text-green-700 whitespace-nowrap">${fee}</td>
                             <td class="px-3 py-2 text-gray-600 whitespace-nowrap text-xs">${formattedAdmissionDate}</td>
                             <td class="px-3 py-2 text-center text-gray-700 font-medium whitespace-nowrap text-xs">${daysProgress}</td>
                             <td class="px-3 py-2 font-semibold text-blue-700 whitespace-nowrap">${receivedAmount}</td>
-                            <td class="px-3 py-2 text-gray-600 whitespace-nowrap">${
-                              p.drug || '-'
-                            }</td>
-                            <td class="px-3 py-2 text-right">${dischargeBtn}</td>`;
+                            <td class="px-3 py-2 font-semibold ${
+                              pendingValue > 0 ? 'text-red-600' : 'text-green-700'
+                            } whitespace-nowrap">${pendingAmount}</td>
+                            <td class="px-3 py-2 text-right">${actionControls}</td>`;
           } else {
             tr.innerHTML = `<td class="px-3 py-2 font-medium text-gray-700 whitespace-nowrap text-xs">${serialNo}</td>
                             <td class="px-3 py-2 font-medium whitespace-nowrap">${
@@ -1620,14 +1629,15 @@
                               p.contactNo || '-'
                             }</td>
                             <td class="px-3 py-2 text-gray-600 whitespace-nowrap">${areaDisplay}</td>
+                            <td class="px-3 py-2 text-gray-600 whitespace-nowrap">${drugDisplay}</td>
                             <td class="px-3 py-2 font-semibold text-green-700 whitespace-nowrap">${fee}</td>
                             <td class="px-3 py-2 text-gray-600 whitespace-nowrap text-xs">${formattedAdmissionDate}</td>
                             <td class="px-3 py-2 text-center text-gray-700 font-medium whitespace-nowrap text-xs">${daysProgress}</td>
                             <td class="px-3 py-2 font-semibold text-blue-700 whitespace-nowrap">${receivedAmount}</td>
-                            <td class="px-3 py-2 text-gray-600 whitespace-nowrap">${
-                              p.drug || '-'
-                            }</td>
-                            <td class="px-3 py-2 text-right"></td>`;
+                            <td class="px-3 py-2 font-semibold ${
+                              pendingValue > 0 ? 'text-red-600' : 'text-green-700'
+                            } whitespace-nowrap">${pendingAmount}</td>
+                            <td class="px-3 py-2 text-right">${actionControls}</td>`;
           }
           tbody.appendChild(tr);
         });
@@ -1672,6 +1682,42 @@
         } catch (err) {
           console.error('Discharge error:', err);
           showSuccessModal('Network error while discharging.', true);
+        }
+      };
+
+      window.revertDischargeFromTable = async function (id) {
+        try {
+          const payload = {
+            isDischarged: false,
+            dischargeDate: null,
+          };
+
+          const res = await fetch(`/api/patients/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+
+          if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            showSuccessModal(errData.error || 'Failed to restore patient. Please try again.', true);
+            return;
+          }
+
+          dischargedPatientIds.delete(id);
+
+          patientsData = patientsData.map((p) => {
+            if ((p._id || p.id) === id) {
+              return { ...p, isDischarged: false, dischargeDate: null };
+            }
+            return p;
+          });
+
+          renderPatientsTable(patientsData);
+          showSuccessModal('Patient restored to active list.');
+        } catch (err) {
+          console.error('Revert discharge error:', err);
+          showSuccessModal('Network error while restoring patient.', true);
         }
       };
 
@@ -2367,25 +2413,25 @@
         // 3. Fetch Income (The GREEN card) - WITH CACHE BUSTING
         try {
           // The timestamp (?t=...) forces the browser to fetch new data from the server
-          const dashRes = await fetch('/api/dashboard?t=' + Date.now()); 
-          
+          const dashRes = await fetch('/api/dashboard?t=' + Date.now());
+
           if (dashRes.ok) {
             const dashData = await dashRes.json();
-            
+
             // Log exactly what the frontend received
-            console.log("Overheads Income Data Received:", dashData.totalIncomeThisMonth);
+            console.log('Overheads Income Data Received:', dashData.totalIncomeThisMonth);
 
             const incomeEl = document.getElementById('overhead-total-income');
             if (incomeEl) {
-                // Force conversion to Number to ensure safety
-                const val = Number(dashData.totalIncomeThisMonth) || 0;
-                incomeEl.innerText = formatCurrency(val);
+              // Force conversion to Number to ensure safety
+              const val = Number(dashData.totalIncomeThisMonth) || 0;
+              incomeEl.innerText = formatCurrency(val);
             } else {
-                console.error("Error: Could not find HTML element with id 'overhead-total-income'");
+              console.error("Error: Could not find HTML element with id 'overhead-total-income'");
             }
           }
         } catch (e) {
-          console.error("Failed to load income for overheads", e);
+          console.error('Failed to load income for overheads', e);
         }
       }
 
@@ -2785,28 +2831,28 @@
         // 3. Fetch Income (The GREEN card) - THIS IS THE FIX
         try {
           // We add ?t=... to force the browser to get fresh data
-          const dashRes = await fetch('/api/dashboard?t=' + Date.now()); 
-          
+          const dashRes = await fetch('/api/dashboard?t=' + Date.now());
+
           if (dashRes.ok) {
             const dashData = await dashRes.json();
-            
+
             // Console log to verify browser received the 10300
-            console.log("Overheads Income Data Received:", dashData.totalIncomeThisMonth);
+            console.log('Overheads Income Data Received:', dashData.totalIncomeThisMonth);
 
             const incomeEl = document.getElementById('overhead-total-income');
             if (incomeEl) {
-                // Ensure we convert to Number before formatting
-                const val = Number(dashData.totalIncomeThisMonth) || 0;
-                incomeEl.innerText = formatCurrency(val);
+              // Ensure we convert to Number before formatting
+              const val = Number(dashData.totalIncomeThisMonth) || 0;
+              incomeEl.innerText = formatCurrency(val);
             } else {
-                console.error("Error: Could not find HTML element with id 'overhead-total-income'");
+              console.error("Error: Could not find HTML element with id 'overhead-total-income'");
             }
           }
         } catch (e) {
-          console.error("Failed to load income for overheads", e);
+          console.error('Failed to load income for overheads', e);
         }
       }
-      
+
       function updateOverheadTotal() {
         const grandTotal = totalSalaries + totalBills;
         document.getElementById('grand-overhead-total').innerText = formatCurrency(grandTotal);
@@ -2823,33 +2869,82 @@
         }
 
         const modal = document.getElementById('receipt-modal');
-        const select = document.getElementById('receipt-patient-select');
-        document.getElementById('receipt-amount').value = '';
+        const patientIdField = document.getElementById('receipt-patient-id');
+        const patientList = document.getElementById('receipt-patient-list');
+        const patientInput = document.getElementById('receipt-patient-input');
+        const amountField = document.getElementById('receipt-amount');
+        const dateField = document.getElementById('receipt-date');
 
-        select.innerHTML = '<option value="">Loading...</option>';
+        if (!patientInput) {
+          console.error('Receipt patient input not found in DOM.');
+          showSuccessModal('Unable to open receipt form. Please reload and try again.', true);
+          return;
+        }
+
+        amountField.value = '';
+        patientInput.value = '';
+        patientIdField.value = '';
+        patientList.innerHTML = '<option value="">Loading...</option>';
+
+        const now = new Date();
+        if (dateField) {
+          const localIso = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
+            .toISOString()
+            .split('T')[0];
+          dateField.value = localIso;
+        }
+
         modal.classList.remove('hidden');
 
         try {
-          // Reuse existing fetchPatients or call API directly
           if (patientsData.length === 0) await fetchPatients();
 
-          select.innerHTML = '<option value="">-- Select Patient --</option>';
-
-          // Filter only active patients (not discharged)
           const activePatients = patientsData.filter((p) => !p.isDischarged);
-
-          activePatients.forEach((p) => {
-            select.innerHTML += `<option value="${p._id || p.id}" data-name="${
-              p.name
-            }" data-father="${p.fatherName}">
-        ${p.name} (ID: ${p.idNo || 'N/A'})
-      </option>`;
+          receiptPatientOptions = activePatients.map((p) => {
+            const idInfo = p.idNo ? `ID: ${p.idNo}` : `Contact: ${p.contactNo || 'N/A'}`;
+            return {
+              id: p._id || p.id,
+              label: `${p.name} - ${idInfo}`,
+              name: p.name,
+              father: p.fatherName || '',
+            };
           });
+
+          if (receiptPatientOptions.length === 0) {
+            patientList.innerHTML = '';
+            patientInput.placeholder = 'No active patients available';
+          } else {
+            patientInput.placeholder = 'Start typing patient name or ID';
+            patientList.innerHTML = receiptPatientOptions
+              .map((opt) => `<option value="${escapeHtml(opt.label)}"></option>`)
+              .join('');
+          }
+
+          handleReceiptPatientInputChange();
         } catch (e) {
           console.error(e);
-          select.innerHTML = '<option value="">Error loading patients</option>';
+          patientList.innerHTML = '';
+          patientInput.placeholder = 'Unable to load patients';
         }
       }
+
+      window.handleReceiptPatientInputChange = function () {
+        const input = document.getElementById('receipt-patient-input');
+        const hiddenField = document.getElementById('receipt-patient-id');
+        if (!input || !hiddenField) return;
+
+        const value = input.value.trim();
+        const match = receiptPatientOptions.find((opt) => opt.label === value);
+        if (match) {
+          hiddenField.value = match.id;
+          input.dataset.patientName = match.name;
+          input.dataset.fatherName = match.father;
+        } else {
+          hiddenField.value = '';
+          delete input.dataset.patientName;
+          delete input.dataset.fatherName;
+        }
+      };
 
       function toggleReceiptScreenshot() {
         const mode = document.getElementById('receipt-mode').value;
@@ -2864,30 +2959,48 @@
       async function handleReceiptGeneration(e) {
         e.preventDefault();
 
-        const select = document.getElementById('receipt-patient-select');
+        const patientIdField = document.getElementById('receipt-patient-id');
         const amountInput = document.getElementById('receipt-amount');
         const modeInput = document.getElementById('receipt-mode');
+        const dateInput = document.getElementById('receipt-date');
         const fileInput = document.getElementById('receipt-screenshot-file');
 
-        const patientId = select.value;
-        const amount = parseInt(amountInput.value);
+        const patientId = patientIdField.value;
+        const selectedDate = dateInput.value;
+        const amount = parseInt(amountInput.value, 10);
         const mode = modeInput.value;
 
-        if (!patientId || !amount || amount <= 0) {
+        if (!patientId) {
+          showSuccessModal('Please choose a patient from the list.', true);
+          return;
+        }
+
+        if (!amount || amount <= 0) {
           showSuccessModal('Please select a patient and enter a valid amount.', true);
+          return;
+        }
+
+        if (!selectedDate) {
+          showSuccessModal('Please select a receipt date.', true);
+          return;
+        }
+
+        const patientMeta = receiptPatientOptions.find((opt) => opt.id === patientId);
+        if (!patientMeta) {
+          showSuccessModal('Selected patient could not be found. Please pick again.', true);
           return;
         }
 
         // 1. Handle File Upload (if Online)
         let screenshotBase64 = '';
         if (mode === 'Online' && fileInput.files && fileInput.files[0]) {
-            try {
-                screenshotBase64 = await readFileAsDataURL(fileInput.files[0]);
-            } catch (err) {
-                console.error("Error reading file", err);
-                showSuccessModal('Error processing screenshot image.', true);
-                return;
-            }
+          try {
+            screenshotBase64 = await readFileAsDataURL(fileInput.files[0]);
+          } catch (err) {
+            console.error('Error reading file', err);
+            showSuccessModal('Error processing screenshot image.', true);
+            return;
+          }
         }
 
         // 2. Send Update to Backend
@@ -2895,10 +3008,11 @@
           const res = await fetch(`/api/patients/${patientId}/payment`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                amount: amount,
-                payment_method: mode,
-                screenshot: screenshotBase64 
+            body: JSON.stringify({
+              amount: amount,
+              payment_method: mode,
+              screenshot: screenshotBase64,
+              payment_date: selectedDate,
             }),
           });
 
@@ -2906,38 +3020,41 @@
             const data = await res.json();
 
             // 3. Prepare Receipt Data
-            const selectedOption = select.options[select.selectedIndex];
-            const pName = selectedOption.getAttribute('data-name');
-            const pFather = selectedOption.getAttribute('data-father');
             const now = new Date();
+            const receiptDate = selectedDate ? new Date(`${selectedDate}T00:00:00`) : now;
 
             document.getElementById('rcpt-no').innerText = `#${Date.now().toString().slice(-6)}`;
-            document.getElementById('rcpt-date').innerText = now.toLocaleDateString('en-PK');
-            document.getElementById('rcpt-time').innerText = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-            
-            document.getElementById('rcpt-name').innerText = pName;
-            document.getElementById('rcpt-father').innerText = pFather || '-';
+            document.getElementById('rcpt-date').innerText =
+              receiptDate.toLocaleDateString('en-PK');
+            document.getElementById('rcpt-time').innerText = now.toLocaleTimeString('en-US', {
+              hour: '2-digit',
+              minute: '2-digit',
+            });
+
+            document.getElementById('rcpt-name').innerText = patientMeta.name;
+            document.getElementById('rcpt-father').innerText = patientMeta.father || '-';
             document.getElementById('rcpt-amount').innerText = `PKR ${amount.toLocaleString()}`;
             document.getElementById('rcpt-mode-display').innerText = mode;
 
             // Handle Screenshot Display in Receipt
             const screenshotArea = document.getElementById('rcpt-screenshot-area');
             const screenshotImg = document.getElementById('rcpt-screenshot-img');
-            
+
             if (mode === 'Online' && screenshotBase64) {
-                screenshotImg.src = screenshotBase64;
-                screenshotArea.classList.remove('hidden');
+              screenshotImg.src = screenshotBase64;
+              screenshotArea.classList.remove('hidden');
             } else {
-                screenshotArea.classList.add('hidden');
-                screenshotImg.src = '';
+              screenshotArea.classList.add('hidden');
+              screenshotImg.src = '';
             }
 
             // 4. Close Modal, Reset Form & Refresh Data
             document.getElementById('receipt-modal').classList.add('hidden');
             e.target.reset(); // Reset form inputs including file
+            handleReceiptPatientInputChange();
             document.getElementById('receipt-screenshot-container').classList.add('hidden'); // Re-hide upload
-            
-            await fetchPatients(); 
+
+            await fetchPatients();
 
             // 5. Print
             printReceipt();
@@ -3310,7 +3427,7 @@
 
           columns.forEach((col) => {
             const status = schedules[col.key];
-            if (status === 'not_done' || status === 'complaint') hasIssue = true;
+            if (status === 'complaint') hasIssue = true;
             const cellClass = getStatusClass(status);
             const icon = getStatusIcon(status);
             const statusLabel = statusLabelMap[status] || 'No Status';
@@ -3975,13 +4092,13 @@
           <div class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
               <h3 class="text-2xl font-bold text-green-900">Call & Meeting Tracker</h3>
-              <p class="text-sm text-gray-500">
-                Track calls, meetings, and text interactions for September 2025
+              <p class="text-sm text-gray-500" id="call-meeting-month-label">
+                Track calls, meetings, and text interactions
               </p>
             </div>
             <div class="flex gap-2">
               <button
-                onclick="printCallMeetingChart()"
+                onclick="printCallMeetingReport()"
                 class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition font-semibold shadow-md"
               >
                 <i class="fas fa-print mr-2"></i>Print
@@ -3995,75 +4112,67 @@
             </div>
           </div>
 
-          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-            <!-- Chart -->
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <div
-              class="lg:col-span-2 kpi-card"
+              class="kpi-card"
               style="
-                background: linear-gradient(135deg, #ffffff 0%, #f7fdf9 100%);
+                background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+                border-color: rgba(59, 130, 246, 0.2);
+              "
+            >
+              <div class="text-sm text-gray-700 font-bold">Total Calls</div>
+              <div class="text-3xl font-bold text-blue-600 mt-2" id="stat-calls">0</div>
+            </div>
+            <div
+              class="kpi-card"
+              style="
+                background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
                 border-color: rgba(16, 185, 129, 0.2);
               "
             >
-              <h3 class="text-lg font-bold text-green-900 mb-4">Activity Overview</h3>
-              <canvas id="callMeetingChart" height="80"></canvas>
+              <div class="text-sm text-gray-700 font-bold">Total Meetings</div>
+              <div class="text-3xl font-bold text-emerald-600 mt-2" id="stat-meetings">0</div>
             </div>
-
-            <!-- Stats Cards -->
-            <div class="space-y-4">
-              <div
-                class="kpi-card"
-                style="
-                  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
-                  border-color: rgba(59, 130, 246, 0.2);
-                "
-              >
-                <div class="text-sm text-gray-700 font-bold">Total Calls</div>
-                <div class="text-3xl font-bold text-blue-600 mt-2" id="stat-calls">0</div>
-              </div>
-              <div
-                class="kpi-card"
-                style="
-                  background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
-                  border-color: rgba(16, 185, 129, 0.2);
-                "
-              >
-                <div class="text-sm text-gray-700 font-bold">Total Meetings</div>
-                <div class="text-3xl font-bold text-emerald-600 mt-2" id="stat-meetings">0</div>
-              </div>
-              <div
-                class="kpi-card"
-                style="
-                  background: linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 100%);
-                  border-color: rgba(168, 85, 247, 0.2);
-                "
-              >
-                <div class="text-sm text-gray-700 font-bold">Total Texts</div>
-                <div class="text-3xl font-bold text-purple-600 mt-2" id="stat-texts">0</div>
-              </div>
+            <div
+              class="kpi-card"
+              style="
+                background: linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 100%);
+                border-color: rgba(168, 85, 247, 0.2);
+              "
+            >
+              <div class="text-sm text-gray-700 font-bold">Total Texts</div>
+              <div class="text-3xl font-bold text-purple-600 mt-2" id="stat-texts">0</div>
             </div>
           </div>
 
           <!-- Data Table -->
-          <div
-            class="kpi-card overflow-auto-x hidden"
-            style="padding: 0; border-color: rgba(16, 185, 129, 0.2)"
-          >
-            <table class="min-w-full divide-y divide-emerald-100">
-              <thead class="bg-gradient-to-r from-emerald-700 to-emerald-600 text-white">
-                <tr>
-                  <th class="px-6 py-3 text-left whitespace-nowrap font-semibold">Name</th>
-                  <th class="px-6 py-3 text-left whitespace-nowrap font-semibold">
-                    Admission Date
-                  </th>
-                  <th class="px-6 py-3 text-center whitespace-nowrap font-semibold">
-                    Scheduled Date
-                  </th>
-                  <th class="px-6 py-3 text-center whitespace-nowrap font-semibold">Type</th>
-                  <th class="px-6 py-3 text-center whitespace-nowrap font-semibold">Actions</th>
-                </tr>
-              </thead>
-              <tbody id="call_meeting_table_body" class="divide-y divide-emerald-50"></tbody>
-            </table>
+          <div class="bg-white rounded-xl shadow-lg border border-emerald-100 overflow-hidden">
+            <div class="overflow-x-auto">
+              <table class="min-w-full divide-y divide-emerald-100 relative">
+                <thead class="bg-emerald-600 text-white">
+                  <tr id="call_meeting_header_row"></tr>
+                </thead>
+                <tbody
+                  id="call_meeting_table_body"
+                  class="divide-y divide-emerald-50 bg-white text-sm"
+                ></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="mt-6 flex flex-wrap gap-4 text-xs font-semibold text-gray-600 justify-end">
+            <div class="flex items-center gap-1.5">
+              <div class="w-3 h-3 bg-blue-100 border border-blue-500 rounded"></div>
+              Call
+            </div>
+            <div class="flex items-center gap-1.5">
+              <div class="w-3 h-3 bg-green-100 border border-green-500 rounded"></div>
+              Meeting
+            </div>
+            <div class="flex items-center gap-1.5">
+              <div class="w-3 h-3 bg-amber-100 border border-amber-500 rounded"></div>
+              Text
+            </div>
           </div>
         </div>
       </section>
@@ -4222,6 +4331,7 @@
                   Contact
                 </th>
                 <th class="px-3 py-2 text-left whitespace-nowrap font-semibold text-xs">Area</th>
+                <th class="px-3 py-2 text-left whitespace-nowrap font-semibold text-xs">Drug</th>
                 <th
                   id="header-fee"
                   class="px-3 py-2 text-left whitespace-nowrap font-semibold text-xs"
@@ -4237,7 +4347,9 @@
                 <th class="px-3 py-2 text-left whitespace-nowrap font-semibold text-xs">
                   Received Amt
                 </th>
-                <th class="px-3 py-2 text-left whitespace-nowrap font-semibold text-xs">Drug</th>
+                <th class="px-3 py-2 text-left whitespace-nowrap font-semibold text-xs">
+                  Pending Amt
+                </th>
                 <th class="px-3 py-2 text-right whitespace-nowrap font-semibold text-xs">
                   Actions
                 </th>
@@ -4586,7 +4698,7 @@
         </div>
       </section>
 
-<section id="overheads-view" class="view-section hidden p-4 md:p-8">
+      <section id="overheads-view" class="view-section hidden p-4 md:p-8">
         <div class="mb-8">
           <div class="mb-6">
             <h2 class="text-2xl font-bold text-green-900">
@@ -4598,35 +4710,48 @@
           </div>
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            
-            <div class="bg-emerald-50 border border-emerald-200 px-6 py-5 rounded-xl shadow-sm flex flex-col justify-between relative overflow-hidden">
+            <div
+              class="bg-emerald-50 border border-emerald-200 px-6 py-5 rounded-xl shadow-sm flex flex-col justify-between relative overflow-hidden"
+            >
               <div class="z-10">
                 <span class="text-xs font-bold text-emerald-600 uppercase tracking-wide">
                   <i class="fas fa-arrow-down mr-1"></i> Total Expected Incoming
                 </span>
                 <div class="mt-2 flex items-baseline gap-2">
-                  <span id="overhead-total-income" class="text-3xl font-extrabold text-emerald-700">PKR 0</span>
-                  <span class="text-xs text-emerald-600 font-medium opacity-80">(Fees from Active Patients)</span>
+                  <span id="overhead-total-income" class="text-3xl font-extrabold text-emerald-700"
+                    >PKR 0</span
+                  >
+                  <span class="text-xs text-emerald-600 font-medium opacity-80"
+                    >(Fees from Active Patients)</span
+                  >
                 </div>
               </div>
-              <div class="absolute right-0 top-0 h-full w-24 bg-gradient-to-l from-emerald-100/50 to-transparent pointer-events-none"></div>
+              <div
+                class="absolute right-0 top-0 h-full w-24 bg-gradient-to-l from-emerald-100/50 to-transparent pointer-events-none"
+              ></div>
             </div>
 
-            <div class="bg-red-50 border border-red-200 px-6 py-5 rounded-xl shadow-sm flex flex-col justify-between relative overflow-hidden">
+            <div
+              class="bg-red-50 border border-red-200 px-6 py-5 rounded-xl shadow-sm flex flex-col justify-between relative overflow-hidden"
+            >
               <div class="z-10">
                 <span class="text-xs font-bold text-red-600 uppercase tracking-wide">
                   <i class="fas fa-arrow-up mr-1"></i> Total Estimated Overheads
                 </span>
                 <div class="mt-2 flex items-baseline gap-2">
-                  <span id="grand-overhead-total" class="text-3xl font-extrabold text-red-700">PKR 0</span>
+                  <span id="grand-overhead-total" class="text-3xl font-extrabold text-red-700"
+                    >PKR 0</span
+                  >
                 </div>
                 <div class="text-xs text-red-500 mt-1 font-medium">
-                  (Salaries: <span id="total-salary-display">0</span> + Bills: <span id="total-bills-display">0</span>)
+                  (Salaries: <span id="total-salary-display">0</span> + Bills:
+                  <span id="total-bills-display">0</span>)
                 </div>
               </div>
-              <div class="absolute right-0 top-0 h-full w-24 bg-gradient-to-l from-red-100/50 to-transparent pointer-events-none"></div>
+              <div
+                class="absolute right-0 top-0 h-full w-24 bg-gradient-to-l from-red-100/50 to-transparent pointer-events-none"
+              ></div>
             </div>
-
           </div>
         </div>
 
@@ -5980,13 +6105,30 @@
         <form onsubmit="handleReceiptGeneration(event)">
           <div class="mb-4">
             <label class="block text-sm font-bold text-gray-700 mb-1">Select Patient</label>
-            <select
-              id="receipt-patient-select"
+            <input
+              id="receipt-patient-input"
+              list="receipt-patient-list"
+              oninput="handleReceiptPatientInputChange()"
+              autocomplete="off"
               class="w-full border p-3 rounded bg-gray-50 focus:ring-2 focus:ring-emerald-500"
+              placeholder="Start typing patient name"
               required
-            >
-              <option value="">Loading...</option>
-            </select>
+            />
+            <datalist id="receipt-patient-list"></datalist>
+            <input type="hidden" id="receipt-patient-id" />
+            <p class="text-xs text-gray-500 mt-1">
+              Type a name or ID to filter and then select a match.
+            </p>
+          </div>
+
+          <div class="mb-4">
+            <label class="block text-sm font-bold text-gray-700 mb-1">Receipt Date</label>
+            <input
+              type="date"
+              id="receipt-date"
+              class="w-full border p-3 rounded bg-white focus:ring-2 focus:ring-emerald-500"
+              required
+            />
           </div>
 
           <div class="mb-4">
@@ -6036,7 +6178,7 @@
       </div>
     </div>
 
-   <div id="printable-receipt" class="hidden">
+    <div id="printable-receipt" class="hidden">
       <div class="p-8 border-2 border-gray-800 m-4 max-w-2xl mx-auto relative">
         <div class="flex items-center justify-center gap-4 border-b-2 border-gray-800 pb-6 mb-6">
           <i class="fas fa-brain text-5xl text-gray-800"></i>
@@ -6055,8 +6197,8 @@
           <div class="text-right">
             <p class="text-sm text-gray-500">Date & Time:</p>
             <div class="font-bold">
-                <span id="rcpt-date">--/--/----</span>
-                <span id="rcpt-time" class="ml-2 text-sm text-gray-600">--:--</span>
+              <span id="rcpt-date">--/--/----</span>
+              <span id="rcpt-time" class="ml-2 text-sm text-gray-600">--:--</span>
             </div>
           </div>
         </div>
@@ -6085,9 +6227,19 @@
           </div>
         </div>
 
-        <div id="rcpt-screenshot-area" class="mb-8 hidden border border-dashed border-gray-300 p-2 rounded flex flex-col items-center">
-            <p class="text-xs text-gray-400 mb-2 uppercase tracking-wide">Transaction Proof / Screenshot</p>
-            <img id="rcpt-screenshot-img" src="" alt="Payment Screenshot" class="max-h-64 object-contain" />
+        <div
+          id="rcpt-screenshot-area"
+          class="mb-8 hidden border border-dashed border-gray-300 p-2 rounded flex flex-col items-center"
+        >
+          <p class="text-xs text-gray-400 mb-2 uppercase tracking-wide">
+            Transaction Proof / Screenshot
+          </p>
+          <img
+            id="rcpt-screenshot-img"
+            src=""
+            alt="Payment Screenshot"
+            class="max-h-64 object-contain"
+          />
         </div>
 
         <div class="flex justify-between mt-12 pt-4">
