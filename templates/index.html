@@ -3418,9 +3418,15 @@
             const noteStatus = s.note
               ? `<div class="text-emerald-700 font-semibold">Saved</div>
                  <div class="text-xs text-gray-600">Issue: ${escapeHtml(detail.issue || '')}</div>
-                 <div class="text-xs text-gray-600">Intervention: ${escapeHtml(detail.intervention || '')}</div>
-                 <div class="text-xs text-gray-600">Response: ${escapeHtml(detail.response || '')}</div>
-                 <div class="text-[11px] text-gray-400">by ${escapeHtml(s.note_author || 'Unknown')}</div>`
+                 <div class="text-xs text-gray-600">Intervention: ${escapeHtml(
+                   detail.intervention || ''
+                 )}</div>
+                 <div class="text-xs text-gray-600">Response: ${escapeHtml(
+                   detail.response || ''
+                 )}</div>
+                 <div class="text-[11px] text-gray-400">by ${escapeHtml(
+                   s.note_author || 'Unknown'
+                 )}</div>`
               : '<span class="text-amber-600 font-semibold">Pending</span>';
 
             const actionBtn = s.note
@@ -3523,7 +3529,7 @@
           const res = await fetch(`/api/psych-sessions/${psychNoteSessionId}/note`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ issue, intervention, response })
+            body: JSON.stringify({ issue, intervention, response }),
           });
           if (!res.ok) {
             showSuccessModal('Could not save note.', true);
@@ -6989,7 +6995,12 @@
         <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
           <div>
             <label class="text-xs font-semibold text-gray-600">Date</label>
-            <input type="date" id="psych-note-date" class="w-full border rounded px-3 py-2" disabled />
+            <input
+              type="date"
+              id="psych-note-date"
+              class="w-full border rounded px-3 py-2"
+              disabled
+            />
           </div>
           <div class="md:col-span-2">
             <label class="text-xs font-semibold text-gray-600">Here & Now Issue</label>
