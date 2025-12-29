@@ -724,6 +724,47 @@
         }).format(amount);
       const formatNumber = (num) => new Intl.NumberFormat('en-US').format(num);
 
+      window.showResetPasswordModal = function (token) {
+        const modal = document.getElementById('reset-password-modal');
+        const tokenInput = document.getElementById('reset-token-input');
+        if (!modal || !tokenInput) return;
+
+        tokenInput.value = token;
+        modal.classList.remove('hidden');
+
+        // Ensure the login view is visible behind the modal
+        document.querySelectorAll('.view-section').forEach((el) => el.classList.add('hidden'));
+        const loginView = document.getElementById('login-view');
+        if (loginView) loginView.classList.remove('hidden');
+
+        // Drop the token from the URL once captured
+        const url = new URL(window.location.href);
+        url.searchParams.delete('reset_token');
+        const search = url.searchParams.toString();
+        window.history.replaceState(
+          {},
+          document.title,
+          search ? `${url.pathname}?${search}` : url.pathname
+        );
+      };
+
+      window.closeResetPasswordModal = function () {
+        const modal = document.getElementById('reset-password-modal');
+        if (modal) modal.classList.add('hidden');
+        const tokenInput = document.getElementById('reset-token-input');
+        if (tokenInput) tokenInput.value = '';
+      };
+
+      window.openForgotPasswordModal = function () {
+        const modal = document.getElementById('forgot-password-modal');
+        if (modal) modal.classList.remove('hidden');
+      };
+
+      window.closeForgotPasswordModal = function () {
+        const modal = document.getElementById('forgot-password-modal');
+        if (modal) modal.classList.add('hidden');
+      };
+
       // --- AUTH & SETUP ---
       const setLoading = (isLoading) => {
         const overlay = document.getElementById('app-loading-overlay');
@@ -735,6 +776,13 @@
 
       async function initApp() {
         setLoading(true);
+        const url = new URL(window.location.href);
+        const tokenFromUrl = url.searchParams.get('reset_token');
+        if (tokenFromUrl) {
+          window.showResetPasswordModal(tokenFromUrl);
+          setLoading(false);
+          return;
+        }
         if (await checkSession()) {
           updateNavVisibility();
           await fetchPatients();
@@ -826,6 +874,59 @@
           }
         } catch (e) {
           showSuccessModal('Login error.', true);
+        }
+      };
+
+      window.handleForgotPassword = async function (e) {
+        e.preventDefault();
+        const username = document.getElementById('forgot-username').value;
+        const email = document.getElementById('forgot-email').value;
+        try {
+          const res = await fetch('/api/auth/forgot', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, email }),
+          });
+          const data = await res.json();
+          if (res.ok) {
+            showSuccessModal(data.message || 'If the account exists, a reset email has been sent.');
+            window.closeForgotPasswordModal();
+          } else {
+            showSuccessModal(data.error || 'Could not start password reset.', true);
+          }
+        } catch (err) {
+          console.error(err);
+          showSuccessModal('Error sending reset request.', true);
+        }
+      };
+
+      window.handleResetPassword = async function (e) {
+        e.preventDefault();
+        const token = document.getElementById('reset-token-input').value;
+        const newPassword = document.getElementById('reset-new-password').value;
+        const confirmPassword = document.getElementById('reset-confirm-password').value;
+
+        if (newPassword !== confirmPassword) {
+          showSuccessModal('Passwords do not match.', true);
+          return;
+        }
+
+        try {
+          const res = await fetch('/api/auth/reset', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token, new_password: newPassword }),
+          });
+          const data = await res.json();
+          if (res.ok) {
+            showSuccessModal(data.message || 'Password reset successfully.');
+            window.closeResetPasswordModal();
+          } else {
+            showSuccessModal(data.error || 'Could not reset password.', true);
+          }
+        } catch (err) {
+          console.error(err);
+          showSuccessModal('Error resetting password.', true);
         }
       };
 
@@ -2460,6 +2561,7 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             username: f['new-username'].value,
+            email: f['new-email'].value,
             password: f['new-password'].value,
             name: f['new-name'].value,
             role: f['new-role'].value,
@@ -4265,10 +4367,19 @@
           <input
             type="password"
             id="login-password"
-            class="w-full p-3 mb-6 border rounded"
+            class="w-full p-3 mb-3 border rounded"
             placeholder="Password"
             required
           />
+          <div class="text-right mb-4">
+            <button
+              type="button"
+              onclick="openForgotPasswordModal()"
+              class="text-sm text-emerald-700 hover:underline"
+            >
+              Forgot password?
+            </button>
+          </div>
           <button
             type="submit"
             class="w-full bg-green-600 text-white p-3 rounded font-bold hover:bg-green-700"
@@ -4278,6 +4389,116 @@
         </form>
       </div>
     </section>
+
+    <!-- FORGOT PASSWORD MODAL -->
+    <div
+      id="forgot-password-modal"
+      class="fixed inset-0 bg-gray-900 bg-opacity-50 hidden flex items-center justify-center z-50"
+    >
+      <div class="bg-white p-6 rounded-xl shadow-2xl w-full max-w-md mx-4">
+        <div class="flex items-start justify-between mb-4">
+          <div>
+            <h3 class="text-xl font-bold text-gray-900">Forgot Password</h3>
+            <p class="text-sm text-gray-600">Enter your username and registered email.</p>
+          </div>
+          <button onclick="closeForgotPasswordModal()" class="text-gray-400 hover:text-gray-600">
+            <i class="fas fa-times text-lg"></i>
+          </button>
+        </div>
+        <form onsubmit="handleForgotPassword(event)" class="space-y-4">
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-1">Username</label>
+            <input
+              id="forgot-username"
+              class="w-full border rounded px-3 py-2"
+              placeholder="Your username"
+              required
+            />
+          </div>
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-1">Email</label>
+            <input
+              id="forgot-email"
+              type="email"
+              class="w-full border rounded px-3 py-2"
+              placeholder="you@example.com"
+              required
+            />
+          </div>
+          <div class="flex gap-3 pt-2">
+            <button
+              type="submit"
+              class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded font-semibold transition"
+            >
+              Send Reset Link
+            </button>
+            <button
+              type="button"
+              onclick="closeForgotPasswordModal()"
+              class="flex-1 bg-gray-100 text-gray-700 py-2 rounded font-semibold hover:bg-gray-200 transition"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- RESET PASSWORD MODAL (FROM EMAIL LINK) -->
+    <div
+      id="reset-password-modal"
+      class="fixed inset-0 bg-gray-900 bg-opacity-50 hidden flex items-center justify-center z-50"
+    >
+      <div class="bg-white p-6 rounded-xl shadow-2xl w-full max-w-md mx-4">
+        <div class="flex items-start justify-between mb-4">
+          <div>
+            <h3 class="text-xl font-bold text-gray-900">Set a New Password</h3>
+            <p class="text-sm text-gray-600">Paste from your email link if not auto-filled.</p>
+          </div>
+          <button onclick="closeResetPasswordModal()" class="text-gray-400 hover:text-gray-600">
+            <i class="fas fa-times text-lg"></i>
+          </button>
+        </div>
+        <form onsubmit="handleResetPassword(event)" class="space-y-4">
+          <input id="reset-token-input" type="hidden" />
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-1">New Password</label>
+            <input
+              id="reset-new-password"
+              type="password"
+              class="w-full border rounded px-3 py-2"
+              placeholder="Enter new password"
+              required
+            />
+          </div>
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-1">Confirm Password</label>
+            <input
+              id="reset-confirm-password"
+              type="password"
+              class="w-full border rounded px-3 py-2"
+              placeholder="Confirm new password"
+              required
+            />
+          </div>
+          <div class="flex gap-3 pt-2">
+            <button
+              type="submit"
+              class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded font-semibold transition"
+            >
+              Update Password
+            </button>
+            <button
+              type="button"
+              onclick="closeResetPasswordModal()"
+              class="flex-1 bg-gray-100 text-gray-700 py-2 rounded font-semibold hover:bg-gray-200 transition"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
 
     <div
       class="md:hidden bg-emerald-500 text-white p-4 flex justify-between items-center shadow z-30 flex-none"
@@ -5254,6 +5475,13 @@
                 name="new-username"
                 class="w-full border p-2 mb-2 rounded"
                 placeholder="Username"
+                required
+              />
+              <input
+                name="new-email"
+                type="email"
+                class="w-full border p-2 mb-2 rounded"
+                placeholder="Email"
                 required
               />
               <input

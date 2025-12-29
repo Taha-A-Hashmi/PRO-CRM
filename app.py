@@ -3,10 +3,16 @@ from flask_pymongo import PyMongo
 from bson.objectid import ObjectId
 from datetime import datetime, timedelta
 from werkzeug.security import generate_password_hash, check_password_hash
+from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
+from email.message import EmailMessage
+import smtplib
+import ssl
 import os
 import pandas as pd
 import io
 from dotenv import load_dotenv  # 1. Add this import
+
+load_dotenv()
 
 app = Flask(__name__)
 
@@ -14,12 +20,17 @@ app = Flask(__name__)
 mongo_uri = os.environ.get("MONGO_URI", "mongodb+srv://taha_admin:hospital123@cluster0.ukoxtzf.mongodb.net/hospital_crm_db?retryWrites=true&w=majority&appName=Cluster0&authSource=admin")
 app.config["MONGO_URI"] = mongo_uri
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "a_very_secret_key_for_hms_pro")
+app.config["GMAIL_USER"] = os.environ.get("GMAIL_USER")
+app.config["GMAIL_APP_PASSWORD"] = os.environ.get("GMAIL_APP_PASSWORD")
+app.config["PASSWORD_RESET_EXPIRY_MINUTES"] = int(os.environ.get("PASSWORD_RESET_EXPIRY_MINUTES", "30"))
 
 try:
     mongo = PyMongo(app)
 except Exception as e:
     print(f"Error initializing MongoDB: {e}")
     mongo = None
+
+serializer = URLSafeTimedSerializer(app.config["SECRET_KEY"])
 
 # --- HELPER: DATABASE CHECK & INITIAL SETUP ---
 def check_db():
@@ -55,6 +66,7 @@ def ensure_initial_admin():
                 'password': generate_password_hash('password123'),
                 'role': 'Admin',
                 'name': 'Imran Khan (Admin)',
+                'email': os.environ.get('ADMIN_EMAIL', 'admin@example.com').strip().lower(),
                 'created_at': datetime.now()
             }
             mongo.db.users.insert_one(admin_user)
@@ -63,6 +75,47 @@ def ensure_initial_admin():
 # Run initial setup outside of request context
 with app.app_context():
     ensure_initial_admin()
+
+
+def normalize_email(value):
+    return value.strip().lower() if isinstance(value, str) else value
+
+
+def send_password_reset_email(to_email, username, token):
+    """Send a password reset email using Gmail SMTP credentials."""
+    gmail_user = app.config.get("GMAIL_USER")
+    gmail_pass = app.config.get("GMAIL_APP_PASSWORD")
+
+    if not gmail_user or not gmail_pass:
+        print("Gmail credentials missing; cannot send password reset email.")
+        return False
+
+    base_url = url_for('index', _external=True)
+    connector = '&' if '?' in base_url else '?'
+    reset_link = f"{base_url}{connector}reset_token={token}"
+    expires_in = app.config.get("PASSWORD_RESET_EXPIRY_MINUTES", 30)
+
+    message = EmailMessage()
+    message["Subject"] = "Reset your PRO account password"
+    message["From"] = gmail_user
+    message["To"] = to_email
+    message.set_content(
+        f"Hello {username},\n\n"
+        "We received a request to reset your password. "
+        f"Use the link below to set a new password (valid for {expires_in} minutes).\n\n"
+        f"{reset_link}\n\n"
+        "If you did not request this, you can safely ignore this email."
+    )
+
+    try:
+        context = ssl.create_default_context()
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context) as server:
+            server.login(gmail_user, gmail_pass)
+            server.send_message(message)
+        return True
+    except Exception as e:
+        print(f"Failed to send reset email: {e}")
+        return False
 
 
 # --- AUTHENTICATION ROUTES ---
@@ -111,6 +164,77 @@ def login():
         })
     return jsonify({"error": "Invalid credentials"}), 401
 
+
+@app.route('/api/auth/forgot', methods=['POST'])
+def forgot_password():
+    """Initiate password reset by emailing a time-bound token."""
+    if not check_db():
+        return jsonify({"error": "Database error"}), 500
+
+    data = clean_input_data(request.json or {})
+    username = data.get('username')
+    email = normalize_email(data.get('email'))
+
+    if not username or not email:
+        return jsonify({"error": "Username and email are required"}), 400
+
+    if not app.config.get("GMAIL_USER") or not app.config.get("GMAIL_APP_PASSWORD"):
+        return jsonify({"error": "Email service not configured"}), 500
+
+    user = mongo.db.users.find_one({"username": username})
+    generic_response = {"message": "If the account exists, a reset email has been sent."}
+
+    if not user:
+        return jsonify(generic_response)
+
+    registered_email = normalize_email(user.get('email'))
+    if not registered_email or registered_email != email:
+        return jsonify(generic_response)
+
+    token = serializer.dumps({"user_id": str(user['_id']), "email": registered_email}, salt="password-reset")
+    send_password_reset_email(registered_email, user.get('name', user['username']), token)
+
+    return jsonify(generic_response)
+
+
+@app.route('/api/auth/reset', methods=['POST'])
+def reset_password():
+    """Reset password using a token delivered via email."""
+    if not check_db():
+        return jsonify({"error": "Database error"}), 500
+
+    data = clean_input_data(request.json or {})
+    token = data.get('token')
+    new_password = data.get('new_password')
+
+    if not token or not new_password:
+        return jsonify({"error": "Token and new password are required"}), 400
+
+    try:
+        payload = serializer.loads(
+            token,
+            salt="password-reset",
+            max_age=app.config.get("PASSWORD_RESET_EXPIRY_MINUTES", 30) * 60
+        )
+    except SignatureExpired:
+        return jsonify({"error": "Reset link expired"}), 400
+    except BadSignature:
+        return jsonify({"error": "Invalid reset token"}), 400
+
+    user_id = payload.get('user_id')
+    email = normalize_email(payload.get('email'))
+    if not user_id:
+        return jsonify({"error": "Invalid reset token"}), 400
+
+    user = mongo.db.users.find_one({"_id": ObjectId(user_id)})
+    if not user or (email and normalize_email(user.get('email')) != email):
+        return jsonify({"error": "Invalid reset token"}), 400
+
+    new_password_hash = generate_password_hash(new_password)
+    mongo.db.users.update_one({'_id': ObjectId(user_id)}, {'$set': {'password': new_password_hash}})
+
+    return jsonify({"message": "Password has been reset successfully"})
+
 @app.route('/api/auth/logout', methods=['POST'])
 def logout():
     session.pop('user_id', None)
@@ -143,11 +267,18 @@ def get_users():
 def create_user():
     if not check_db(): return jsonify({"error": "Database error"}), 500
     data = clean_input_data(request.json)
-    if not all(k in data for k in ['username', 'password', 'role', 'name']):
+    if not all(k in data for k in ['username', 'password', 'role', 'name', 'email']):
         return jsonify({"error": "Missing fields"}), 400
+
+    data['email'] = normalize_email(data.get('email'))
+    if not data['email']:
+        return jsonify({"error": "Valid email required"}), 400
     
     if mongo.db.users.find_one({"username": data['username']}):
         return jsonify({"error": "Username already exists"}), 409
+
+    if mongo.db.users.find_one({"email": data['email']}):
+        return jsonify({"error": "Email already exists"}), 409
 
     data['password'] = generate_password_hash(data['password'])
     data['created_at'] = datetime.now()
