@@ -2592,56 +2592,57 @@
       // --- CANTEEN LOGIC ---
       function setupSearchableDropdown(input, dropdown, patients) {
         let selectedPatientId = null;
-        
+
         // Render dropdown items
         function renderDropdown(filter = '') {
-          const filteredPatients = patients.filter(p => 
+          const filteredPatients = patients.filter((p) =>
             p.name.toLowerCase().includes(filter.toLowerCase())
           );
-          
+
           dropdown.innerHTML = '';
-          
+
           if (filteredPatients.length === 0) {
-            dropdown.innerHTML = '<div class="searchable-dropdown-item" style="color: #9ca3af;">No patients found</div>';
+            dropdown.innerHTML =
+              '<div class="searchable-dropdown-item" style="color: #9ca3af;">No patients found</div>';
           } else {
-            filteredPatients.forEach(p => {
+            filteredPatients.forEach((p) => {
               const item = document.createElement('div');
               item.className = 'searchable-dropdown-item';
               item.textContent = p.name;
               item.dataset.id = p.id;
               item.dataset.name = p.name;
-              
+
               item.addEventListener('click', () => {
                 input.value = p.name;
                 selectedPatientId = p.id;
                 dropdown.style.display = 'none';
               });
-              
+
               dropdown.appendChild(item);
             });
           }
         }
-        
+
         // Show dropdown on focus
         input.addEventListener('focus', () => {
           renderDropdown(input.value);
           dropdown.style.display = 'block';
         });
-        
+
         // Filter on input
         input.addEventListener('input', (e) => {
           renderDropdown(e.target.value);
           dropdown.style.display = 'block';
           selectedPatientId = null; // Clear selection when typing
         });
-        
+
         // Hide dropdown when clicking outside
         document.addEventListener('click', (e) => {
           if (!input.contains(e.target) && !dropdown.contains(e.target)) {
             dropdown.style.display = 'none';
           }
         });
-        
+
         // Store selected ID for form submission
         input.dataset.getSelectedId = () => selectedPatientId;
       }
@@ -2660,7 +2661,12 @@
           // Display current month/date
           const now = new Date();
           const monthName = now.toLocaleString('en-US', { month: 'long', year: 'numeric' });
-          const todayDate = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+          const todayDate = now.toLocaleDateString('en-US', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+          });
           monthDisplay.innerHTML = `<strong>Month:</strong> ${monthName} | <strong>Today:</strong> ${todayDate}`;
 
           // Role-based access control
@@ -2689,7 +2695,7 @@
           // --- 1. POPULATE PATIENT SEARCH (Active Patients Only) ---
           const patientSearchInput = document.getElementById('canteen-patient-search');
           const patientDropdown = document.getElementById('canteen-patient-dropdown');
-          
+
           if (isCanteen && patientSearchInput && patientDropdown) {
             // Sort active patients alphabetically
             const activeForDropdown = rawData
@@ -2702,7 +2708,7 @@
             activeForDropdown.forEach((p) => {
               window.canteenPatientMap[p.name] = p.id;
             });
-            
+
             // Setup searchable dropdown
             setupSearchableDropdown(patientSearchInput, patientDropdown, activeForDropdown);
           }
@@ -2762,26 +2768,26 @@
 
       window.recordCanteenSale = async function (e) {
         e.preventDefault();
-        
+
         // Get patient ID from search input
         const patientSearchInput = document.getElementById('canteen-patient-search');
         const patientName = patientSearchInput ? patientSearchInput.value : '';
         const patientId = window.canteenPatientMap ? window.canteenPatientMap[patientName] : null;
-        
+
         if (!patientId) {
           alert('Please select a valid patient from the list');
           return;
         }
-        
+
         const item = document.getElementById('canteen-item-input').value;
         const amount = document.getElementById('canteen-amount-input').value;
-        
+
         const res = await fetch('/api/canteen/sales', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ patient_id: patientId, item, amount: parseInt(amount) }),
         });
-        
+
         if (res.ok) {
           showSuccessModal('Sale Recorded');
           renderCanteenBreakdown();
@@ -3865,7 +3871,7 @@
         const respField = document.getElementById('psych-note-response');
 
         if (dateField) dateField.value = session.date || new Date().toISOString().split('T')[0];
-        
+
         // If editing, populate fields with existing note data
         if (isEdit && session.note_detail) {
           if (issueField) issueField.value = session.note_detail.issue || '';
@@ -5872,7 +5878,7 @@
             <!-- Month/Date will be displayed here -->
           </p>
         </div>
-        
+
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <!-- Daily Entry Panel - For Canteen Staff -->
           <div id="canteen-daily-panel" class="col-span-1 bg-white p-6 rounded shadow">
@@ -5888,7 +5894,11 @@
                   autocomplete="off"
                   required
                 />
-                <div id="canteen-patient-dropdown" class="searchable-dropdown-list" style="display: none;"></div>
+                <div
+                  id="canteen-patient-dropdown"
+                  class="searchable-dropdown-list"
+                  style="display: none"
+                ></div>
               </div>
               <input
                 id="canteen-item-input"
@@ -5910,7 +5920,7 @@
               </button>
             </form>
           </div>
-          
+
           <!-- Allowance Overview Table - Admin Only -->
           <div
             id="canteen-breakdown-table-container"
@@ -5924,11 +5934,19 @@
             <table class="min-w-full divide-y divide-emerald-100 overflow-x-auto">
               <thead class="bg-emerald-50">
                 <tr>
-                  <th class="px-6 py-3 text-left whitespace-nowrap font-semibold text-emerald-800">Patient</th>
-                  <th class="px-6 py-3 whitespace-nowrap font-semibold text-emerald-800">Monthly</th>
+                  <th class="px-6 py-3 text-left whitespace-nowrap font-semibold text-emerald-800">
+                    Patient
+                  </th>
+                  <th class="px-6 py-3 whitespace-nowrap font-semibold text-emerald-800">
+                    Monthly
+                  </th>
                   <th class="px-6 py-3 whitespace-nowrap font-semibold text-emerald-800">Daily</th>
-                  <th class="px-6 py-3 whitespace-nowrap font-semibold text-emerald-800">Consumed</th>
-                  <th class="px-6 py-3 whitespace-nowrap font-semibold text-emerald-800">Remaining</th>
+                  <th class="px-6 py-3 whitespace-nowrap font-semibold text-emerald-800">
+                    Consumed
+                  </th>
+                  <th class="px-6 py-3 whitespace-nowrap font-semibold text-emerald-800">
+                    Remaining
+                  </th>
                 </tr>
               </thead>
               <tbody id="canteen-breakdown-body" class="divide-y divide-emerald-50"></tbody>
@@ -6174,9 +6192,7 @@
           <h2 class="text-2xl font-bold text-green-900">
             <i class="fas fa-calendar-check mr-2"></i>Staff Attendance
           </h2>
-          <p class="text-sm text-gray-500">
-            Track and manage monthly staff attendance records.
-          </p>
+          <p class="text-sm text-gray-500">Track and manage monthly staff attendance records.</p>
         </div>
 
         <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
