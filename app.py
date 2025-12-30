@@ -3,10 +3,16 @@ from flask_pymongo import PyMongo
 from bson.objectid import ObjectId
 from datetime import datetime, timedelta
 from werkzeug.security import generate_password_hash, check_password_hash
+from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
+from email.message import EmailMessage
+import smtplib
+import ssl
 import os
 import pandas as pd
 import io
 from dotenv import load_dotenv  # 1. Add this import
+
+load_dotenv()
 
 app = Flask(__name__)
 
@@ -14,12 +20,17 @@ app = Flask(__name__)
 mongo_uri = os.environ.get("MONGO_URI", "mongodb+srv://taha_admin:hospital123@cluster0.ukoxtzf.mongodb.net/hospital_crm_db?retryWrites=true&w=majority&appName=Cluster0&authSource=admin")
 app.config["MONGO_URI"] = mongo_uri
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "a_very_secret_key_for_hms_pro")
+app.config["GMAIL_USER"] = os.environ.get("GMAIL_USER")
+app.config["GMAIL_APP_PASSWORD"] = os.environ.get("GMAIL_APP_PASSWORD")
+app.config["PASSWORD_RESET_EXPIRY_MINUTES"] = int(os.environ.get("PASSWORD_RESET_EXPIRY_MINUTES", "30"))
 
 try:
     mongo = PyMongo(app)
 except Exception as e:
     print(f"Error initializing MongoDB: {e}")
     mongo = None
+
+serializer = URLSafeTimedSerializer(app.config["SECRET_KEY"])
 
 # --- HELPER: DATABASE CHECK & INITIAL SETUP ---
 def check_db():
@@ -55,6 +66,7 @@ def ensure_initial_admin():
                 'password': generate_password_hash('password123'),
                 'role': 'Admin',
                 'name': 'Imran Khan (Admin)',
+                'email': os.environ.get('ADMIN_EMAIL', 'admin@example.com').strip().lower(),
                 'created_at': datetime.now()
             }
             mongo.db.users.insert_one(admin_user)
@@ -63,6 +75,47 @@ def ensure_initial_admin():
 # Run initial setup outside of request context
 with app.app_context():
     ensure_initial_admin()
+
+
+def normalize_email(value):
+    return value.strip().lower() if isinstance(value, str) else value
+
+
+def send_password_reset_email(to_email, username, token):
+    """Send a password reset email using Gmail SMTP credentials."""
+    gmail_user = app.config.get("GMAIL_USER")
+    gmail_pass = app.config.get("GMAIL_APP_PASSWORD")
+
+    if not gmail_user or not gmail_pass:
+        print("Gmail credentials missing; cannot send password reset email.")
+        return False
+
+    base_url = url_for('index', _external=True)
+    connector = '&' if '?' in base_url else '?'
+    reset_link = f"{base_url}{connector}reset_token={token}"
+    expires_in = app.config.get("PASSWORD_RESET_EXPIRY_MINUTES", 30)
+
+    message = EmailMessage()
+    message["Subject"] = "Reset your PRO account password"
+    message["From"] = gmail_user
+    message["To"] = to_email
+    message.set_content(
+        f"Hello {username},\n\n"
+        "We received a request to reset your password. "
+        f"Use the link below to set a new password (valid for {expires_in} minutes).\n\n"
+        f"{reset_link}\n\n"
+        "If you did not request this, you can safely ignore this email."
+    )
+
+    try:
+        context = ssl.create_default_context()
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context) as server:
+            server.login(gmail_user, gmail_pass)
+            server.send_message(message)
+        return True
+    except Exception as e:
+        print(f"Failed to send reset email: {e}")
+        return False
 
 
 # --- AUTHENTICATION ROUTES ---
@@ -111,6 +164,80 @@ def login():
         })
     return jsonify({"error": "Invalid credentials"}), 401
 
+
+@app.route('/api/auth/forgot', methods=['POST'])
+def forgot_password():
+    """Initiate password reset by emailing a time-bound token."""
+    if not check_db():
+        return jsonify({"error": "Database error"}), 500
+
+    data = clean_input_data(request.json or {})
+    username = data.get('username')
+    email = normalize_email(data.get('email'))
+
+    if not username or not email:
+        return jsonify({"error": "Username and email are required"}), 400
+
+    if not app.config.get("GMAIL_USER") or not app.config.get("GMAIL_APP_PASSWORD"):
+        return jsonify({"error": "Email service not configured"}), 500
+
+    user = mongo.db.users.find_one({"username": username})
+    if not user:
+        return jsonify({"error": "No account found for that username."}), 404
+
+    registered_email = normalize_email(user.get('email'))
+    if not registered_email:
+        return jsonify({"error": "No email is set for this account. Contact an admin."}), 400
+
+    if registered_email != email:
+        return jsonify({"error": "Username and email do not match our records."}), 400
+
+    token = serializer.dumps({"user_id": str(user['_id']), "email": registered_email}, salt="password-reset")
+    sent = send_password_reset_email(registered_email, user.get('name', user['username']), token)
+    if not sent:
+        return jsonify({"error": "Could not send reset email. Please try again or contact support."}), 500
+
+    return jsonify({"message": "Reset email sent to your registered address."})
+
+
+@app.route('/api/auth/reset', methods=['POST'])
+def reset_password():
+    """Reset password using a token delivered via email."""
+    if not check_db():
+        return jsonify({"error": "Database error"}), 500
+
+    data = clean_input_data(request.json or {})
+    token = data.get('token')
+    new_password = data.get('new_password')
+
+    if not token or not new_password:
+        return jsonify({"error": "Token and new password are required"}), 400
+
+    try:
+        payload = serializer.loads(
+            token,
+            salt="password-reset",
+            max_age=app.config.get("PASSWORD_RESET_EXPIRY_MINUTES", 30) * 60
+        )
+    except SignatureExpired:
+        return jsonify({"error": "Reset link expired"}), 400
+    except BadSignature:
+        return jsonify({"error": "Invalid reset token"}), 400
+
+    user_id = payload.get('user_id')
+    email = normalize_email(payload.get('email'))
+    if not user_id:
+        return jsonify({"error": "Invalid reset token"}), 400
+
+    user = mongo.db.users.find_one({"_id": ObjectId(user_id)})
+    if not user or (email and normalize_email(user.get('email')) != email):
+        return jsonify({"error": "Invalid reset token"}), 400
+
+    new_password_hash = generate_password_hash(new_password)
+    mongo.db.users.update_one({'_id': ObjectId(user_id)}, {'$set': {'password': new_password_hash}})
+
+    return jsonify({"message": "Password has been reset successfully"})
+
 @app.route('/api/auth/logout', methods=['POST'])
 def logout():
     session.pop('user_id', None)
@@ -143,11 +270,18 @@ def get_users():
 def create_user():
     if not check_db(): return jsonify({"error": "Database error"}), 500
     data = clean_input_data(request.json)
-    if not all(k in data for k in ['username', 'password', 'role', 'name']):
+    if not all(k in data for k in ['username', 'password', 'role', 'name', 'email']):
         return jsonify({"error": "Missing fields"}), 400
+
+    data['email'] = normalize_email(data.get('email'))
+    if not data['email']:
+        return jsonify({"error": "Valid email required"}), 400
     
     if mongo.db.users.find_one({"username": data['username']}):
         return jsonify({"error": "Username already exists"}), 409
+
+    if mongo.db.users.find_one({"email": data['email']}):
+        return jsonify({"error": "Email already exists"}), 409
 
     data['password'] = generate_password_hash(data['password'])
     data['created_at'] = datetime.now()
@@ -498,11 +632,18 @@ def record_canteen_sale():
         # Convert amount to integer
         data['amount'] = int(data['amount'])
         
+        # Get the date, default to today if not provided
+        sale_date = data.get('date')
+        if sale_date:
+            sale_date = datetime.fromisoformat(sale_date.replace('Z', '+00:00'))
+        else:
+            sale_date = datetime.now()
+        
         sale = {
             'patient_id': ObjectId(data['patient_id']),
             'item': data['item'],
             'amount': data['amount'],
-            'date': datetime.now(),
+            'date': sale_date,
             'recorded_by': session.get('username', 'Canteen Staff')
         }
         result = mongo.db.canteen_sales.insert_one(sale)
@@ -519,6 +660,12 @@ def get_canteen_breakdown():
     
     today = datetime.now()
     start_of_month = today.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    # Calculate days in current month
+    if today.month == 12:
+        next_month = today.replace(year=today.year + 1, month=1, day=1)
+    else:
+        next_month = today.replace(month=today.month + 1, day=1)
+    days_in_month = (next_month - start_of_month).days
     
     try:
         # 1. Fetch all patients with ID, Name, Allowance AND isDischarged
@@ -531,7 +678,7 @@ def get_canteen_breakdown():
                 'name': p['name'], 
                 'allowance': p.get('monthlyAllowance', '0'), 
                 'sales': 0,
-                'isDischarged': p.get('isDischarged', False) # <--- NEW
+                'isDischarged': p.get('isDischarged', False)
             } 
             for p in patients_cursor
         }
@@ -554,25 +701,122 @@ def get_canteen_breakdown():
         for p_id, data in patients_map.items():
             try:
                 sales = data['sales']
-                allowance = int(data['allowance'].replace(',', ''))
-                balance = allowance - sales
+                monthly_allowance = int(data['allowance'].replace(',', ''))
+                # Calculate daily allowance
+                daily_allowance = monthly_allowance / days_in_month if days_in_month > 0 else 0
+                balance = monthly_allowance - sales
             except ValueError:
                 sales = data['sales']
-                allowance = 0
+                monthly_allowance = 0
+                daily_allowance = 0
                 balance = -sales
                 
             breakdown_list.append({
                 'id': p_id,
                 'name': data['name'],
                 'monthlyAllowance': data['allowance'],
+                'dailyAllowance': round(daily_allowance, 2),
                 'monthlySales': sales,
                 'remainingBalance': balance,
-                'isDischarged': data['isDischarged'] # <--- NEW
+                'isDischarged': data['isDischarged']
             })
             
         return jsonify(breakdown_list)
     except Exception as e:
         print(f"Canteen Breakdown Error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/canteen/daily-sheet', methods=['GET'])
+@role_required(['Admin', 'Canteen'])
+def get_daily_canteen_sheet():
+    """Get daily canteen sheet for today with all active patients"""
+    if not check_db(): return jsonify({"error": "Database error"}), 500
+    
+    try:
+        # Get query parameter for date, default to today
+        date_str = request.args.get('date')
+        if date_str:
+            target_date = datetime.fromisoformat(date_str)
+        else:
+            target_date = datetime.now()
+        
+        # Set time range for the target day
+        start_of_day = target_date.replace(hour=0, minute=0, second=0, microsecond=0)
+        end_of_day = target_date.replace(hour=23, minute=59, second=59, microsecond=999999)
+        
+        # Fetch all active patients
+        patients_cursor = mongo.db.patients.find(
+            {'isDischarged': {'$ne': True}},
+            {'name': 1, 'monthlyAllowance': 1}
+        ).sort('name', 1)
+        
+        # Get today's sales for each patient
+        pipeline = [
+            {'$match': {'date': {'$gte': start_of_day, '$lte': end_of_day}}},
+            {'$group': {
+                '_id': '$patient_id',
+                'items': {'$push': {'item': '$item', 'amount': '$amount'}},
+                'total': {'$sum': '$amount'}
+            }}
+        ]
+        daily_sales = {str(s['_id']): s for s in mongo.db.canteen_sales.aggregate(pipeline)}
+        
+        # Build sheet
+        sheet = []
+        for p in patients_cursor:
+            p_id = str(p['_id'])
+            sales_data = daily_sales.get(p_id, {'items': [], 'total': 0})
+            
+            sheet.append({
+                'id': p_id,
+                'name': p['name'],
+                'dailyAllowance': p.get('monthlyAllowance', '0'),
+                'todayItems': sales_data['items'],
+                'todayTotal': sales_data['total']
+            })
+        
+        return jsonify({
+            'date': target_date.strftime('%Y-%m-%d'),
+            'patients': sheet
+        })
+    except Exception as e:
+        print(f"Daily Sheet Error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/canteen/sales/history', methods=['GET'])
+@role_required(['Admin'])
+def get_canteen_sales_history():
+    """Get detailed canteen sales history - Admin only"""
+    if not check_db(): return jsonify({"error": "Database error"}), 500
+    
+    try:
+        patient_id = request.args.get('patient_id')
+        
+        query = {}
+        if patient_id:
+            query['patient_id'] = ObjectId(patient_id)
+        
+        # Get sales with patient names
+        sales_cursor = mongo.db.canteen_sales.find(query).sort('date', -1).limit(100)
+        
+        sales_list = []
+        for sale in sales_cursor:
+            # Get patient name
+            patient = mongo.db.patients.find_one({'_id': sale['patient_id']}, {'name': 1})
+            
+            sales_list.append({
+                'id': str(sale['_id']),
+                'patient_id': str(sale['patient_id']),
+                'patient_name': patient['name'] if patient else 'Unknown',
+                'item': sale.get('item', ''),
+                'amount': sale.get('amount', 0),
+                'date': sale['date'].isoformat() if sale.get('date') else '',
+                'recorded_by': sale.get('recorded_by', '')
+            })
+        
+        return jsonify(sales_list)
+    except Exception as e:
+        print(f"Sales History Error: {e}")
         return jsonify({"error": str(e)}), 500
 
 # --- EXPENSES APIs ---
@@ -880,8 +1124,8 @@ def get_call_meeting_data():
     
     try:
         today = datetime.now()
-        year = today.year
-        month = today.month
+        year = int(request.args.get('year', today.year))
+        month = int(request.args.get('month', today.month))
         
         # Fetch all records for the current month
         records_cursor = mongo.db.call_meeting_tracker.find({
@@ -892,6 +1136,7 @@ def get_call_meeting_data():
         records = []
         for r in records_cursor:
             r['_id'] = str(r['_id'])
+            r['status'] = r.get('status', r.get('type', 'Tick'))
             records.append(r)
         
         return jsonify(records)
@@ -906,8 +1151,12 @@ def add_call_meeting_entry():
     if not check_db(): return jsonify({"error": "Database error"}), 500
     
     data = clean_input_data(request.json)
-    if not all(k in data for k in ['name', 'day', 'month', 'year', 'type', 'date_of_admission']):
+    if not all(k in data for k in ['name', 'day', 'month', 'year', 'date_of_admission']):
         return jsonify({"error": "Missing fields"}), 400
+    
+    status_value = data.get('status') or data.get('type') or 'Meeting'
+    if status_value not in ['Meeting', 'Call']:
+        return jsonify({"error": "Type must be Meeting or Call"}), 400
     
     try:
         entry = {
@@ -915,7 +1164,8 @@ def add_call_meeting_entry():
             'day': int(data['day']),
             'month': int(data['month']),
             'year': int(data['year']),
-            'type': data['type'],  # 'Call', 'Meeting', or 'Text'
+            'type': status_value,
+            'status': status_value,
             'date_of_admission': data['date_of_admission'],
             'recorded_by': session.get('username', 'Admin'),
             'created_at': datetime.now()
@@ -970,30 +1220,27 @@ def get_call_meeting_summary(month, year):
             'month': month
         })
         
-        # Count by type and by person
-        call_count = 0
-        meeting_count = 0
-        text_count = 0
+        # Count tick / cross
+        tick_count = 0
+        cross_count = 0
         by_person = {}
         
         for r in records_cursor:
-            record_type = r.get('type', 'Unknown')
-            if record_type == 'Call':
-                call_count += 1
-            elif record_type == 'Meeting':
-                meeting_count += 1
-            elif record_type == 'Text':
-                text_count += 1
+            record_status = (r.get('status') or r.get('type') or 'Meeting')
+            record_status = record_status.capitalize()
+            is_meeting = record_status == 'Meeting'
+            tick_count += 1 if is_meeting else 0
+            cross_count += 0 if is_meeting else 1
             
             person = r.get('name', 'Unknown')
             if person not in by_person:
-                by_person[person] = {'Call': 0, 'Meeting': 0, 'Text': 0}
-            by_person[person][record_type] = by_person[person].get(record_type, 0) + 1
+                by_person[person] = {'Meeting': 0, 'Call': 0}
+            by_person[person]['Meeting'] = by_person[person].get('Meeting', 0) + (1 if is_meeting else 0)
+            by_person[person]['Call'] = by_person[person].get('Call', 0) + (0 if is_meeting else 1)
         
         return jsonify({
-            'totalCalls': call_count,
-            'totalMeetings': meeting_count,
-            'totalTexts': text_count,
+            'totalMeetings': tick_count,
+            'totalCalls': cross_count,
             'byPerson': by_person
         })
     except Exception as e:
@@ -1480,6 +1727,7 @@ def list_psych_sessions():
                 'patient_names': [patient_map.get(pid, 'Unknown') for pid in s.get('patient_ids', [])],
                 'title': s.get('title', ''),
                 'note': s.get('note', ''),
+                'note_detail': s.get('note_detail'),
                 'note_author': s.get('note_author', ''),
                 'note_at': s.get('note_at').isoformat() if s.get('note_at') else None
             })
@@ -1539,8 +1787,17 @@ def add_psych_session_note(session_id):
 
     data = clean_input_data(request.json)
     note_text = data.get('note', '').strip()
-    if not note_text:
-        return jsonify({"error": "Note is required"}), 400
+    note_issue = data.get('issue', '').strip()
+    note_intervention = data.get('intervention', '').strip()
+    note_response = data.get('response', '').strip()
+
+    # Require the structured fields; keep legacy fallback if only note provided
+    if not (note_issue and note_intervention and note_response):
+        if not note_text:
+            return jsonify({"error": "Issue, intervention, and response are required"}), 400
+    else:
+        # Compose a legacy note string for compatibility
+        note_text = f"Issue: {note_issue}\nIntervention: {note_intervention}\nResponse: {note_response}"
 
     try:
         session_doc = mongo.db.psych_sessions.find_one({'_id': ObjectId(session_id)})
@@ -1554,6 +1811,11 @@ def add_psych_session_note(session_id):
             {'_id': ObjectId(session_id)},
             {'$set': {
                 'note': note_text,
+                'note_detail': {
+                    'issue': note_issue,
+                    'intervention': note_intervention,
+                    'response': note_response
+                } if note_issue and note_intervention and note_response else None,
                 'note_author': session.get('username'),
                 'note_at': datetime.now()
             }}
