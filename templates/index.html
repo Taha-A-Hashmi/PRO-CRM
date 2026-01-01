@@ -760,6 +760,133 @@
         font-weight: 800;
         border: none !important;
       }
+
+      /* --- MOBILE RESPONSIVE: Day/Night Report Tables --- */
+      @media (max-width: 768px) {
+        #day-report-container,
+        #night-report-container {
+          overflow-x: auto !important;
+          -webkit-overflow-scrolling: touch;
+          width: 100%;
+        }
+
+        #day-report-container > div,
+        #night-report-container > div {
+          overflow-x: auto !important;
+          -webkit-overflow-scrolling: touch;
+        }
+
+        #day-report-container .overflow-x-auto,
+        #night-report-container .overflow-x-auto {
+          overflow-x: auto !important;
+          -webkit-overflow-scrolling: touch;
+        }
+
+        #day-report-container table,
+        #night-report-container table {
+          min-width: 800px;
+          display: table;
+          table-layout: auto !important;
+        }
+
+        /* Remove text truncation on mobile - allow full display since table scrolls */
+        #day-report-container th,
+        #night-report-container th,
+        #day-report-container td,
+        #night-report-container td {
+          overflow: visible !important;
+          text-overflow: clip !important;
+          white-space: nowrap !important;
+        }
+
+        /* Reset column width constraints on mobile */
+        #day-report-container th:first-child,
+        #day-report-container td:first-child,
+        #night-report-container th:first-child,
+        #night-report-container td:first-child {
+          width: auto !important;
+          min-width: 120px !important;
+          max-width: none !important;
+        }
+
+        #day-report-container th:not(:first-child),
+        #day-report-container td:not(:first-child),
+        #night-report-container th:not(:first-child),
+        #night-report-container td:not(:first-child) {
+          width: auto !important;
+          min-width: 80px !important;
+        }
+
+        /* Fix Dashboard KPI Cards on Mobile */
+        .kpi-card {
+          min-width: 100% !important;
+          flex: 1 1 100% !important;
+        }
+
+        .kpi-card .flex {
+          flex-wrap: wrap;
+        }
+
+        .kpi-card .kpi-icon {
+          order: -1;
+          margin-bottom: 8px;
+        }
+
+        /* Ensure month summary content doesn't overflow */
+        .kpi-card .flex.items-center.gap-4 {
+          flex-wrap: wrap;
+          gap: 12px !important;
+        }
+
+        /* Fix Attendance Table on Mobile */
+        #attendance-view .overflow-x-auto {
+          overflow-x: auto !important;
+          -webkit-overflow-scrolling: touch;
+        }
+
+        #attendance-view table {
+          min-width: 800px;
+          display: table;
+          table-layout: auto !important;
+        }
+
+        #attendance-view th,
+        #attendance-view td {
+          white-space: nowrap !important;
+          padding: 8px 6px !important;
+        }
+
+        /* Fix Canteen Table on Mobile */
+        #canteen-view .overflow-x-auto,
+        #canteen-breakdown-table-container,
+        #canteen-breakdown-table-container > div {
+          overflow-x: auto !important;
+          -webkit-overflow-scrolling: touch;
+          width: 100%;
+        }
+
+        /* Ensure the container itself scrolls */
+        #canteen-breakdown-table-container {
+          display: block !important;
+        }
+
+        #canteen-breakdown-body table,
+        #canteen-view table,
+        #canteen-breakdown-table-container table {
+          min-width: 700px;
+          display: table;
+          table-layout: auto !important;
+          width: 100%;
+        }
+
+        #canteen-view th,
+        #canteen-view td,
+        #canteen-breakdown-table-container th,
+        #canteen-breakdown-table-container td {
+          white-space: nowrap !important;
+          padding: 8px 6px !important;
+        }
+      }
     </style>
     <script>
       let patientsData = [];
@@ -5924,33 +6051,39 @@
           <!-- Allowance Overview Table - Admin Only -->
           <div
             id="canteen-breakdown-table-container"
-            class="col-span-2 kpi-card overflow-hidden"
+            class="col-span-2 kpi-card"
             style="padding: 0; border-color: rgba(16, 185, 129, 0.2)"
           >
             <div class="bg-gradient-to-r from-emerald-700 to-emerald-600 text-white px-6 py-3">
               <h3 class="font-semibold text-lg">Monthly Allowance Overview</h3>
               <p class="text-xs opacity-90">Consumed vs Remaining Balance</p>
             </div>
-            <table class="min-w-full divide-y divide-emerald-100 overflow-x-auto">
-              <thead class="bg-emerald-50">
-                <tr>
-                  <th class="px-6 py-3 text-left whitespace-nowrap font-semibold text-emerald-800">
-                    Patient
-                  </th>
-                  <th class="px-6 py-3 whitespace-nowrap font-semibold text-emerald-800">
-                    Monthly
-                  </th>
-                  <th class="px-6 py-3 whitespace-nowrap font-semibold text-emerald-800">Daily</th>
-                  <th class="px-6 py-3 whitespace-nowrap font-semibold text-emerald-800">
-                    Consumed
-                  </th>
-                  <th class="px-6 py-3 whitespace-nowrap font-semibold text-emerald-800">
-                    Remaining
-                  </th>
-                </tr>
-              </thead>
-              <tbody id="canteen-breakdown-body" class="divide-y divide-emerald-50"></tbody>
-            </table>
+            <div class="overflow-x-auto">
+              <table class="min-w-full divide-y divide-emerald-100">
+                <thead class="bg-emerald-50">
+                  <tr>
+                    <th
+                      class="px-6 py-3 text-left whitespace-nowrap font-semibold text-emerald-800"
+                    >
+                      Patient
+                    </th>
+                    <th class="px-6 py-3 whitespace-nowrap font-semibold text-emerald-800">
+                      Monthly
+                    </th>
+                    <th class="px-6 py-3 whitespace-nowrap font-semibold text-emerald-800">
+                      Daily
+                    </th>
+                    <th class="px-6 py-3 whitespace-nowrap font-semibold text-emerald-800">
+                      Consumed
+                    </th>
+                    <th class="px-6 py-3 whitespace-nowrap font-semibold text-emerald-800">
+                      Remaining
+                    </th>
+                  </tr>
+                </thead>
+                <tbody id="canteen-breakdown-body" class="divide-y divide-emerald-50"></tbody>
+              </table>
+            </div>
           </div>
         </div>
       </section>
