@@ -1858,13 +1858,7 @@
 
             renderPatientsTable(patientsData);
 
-            // Update table headers based on user role
-            const isAdmin = currentUser.role === 'Admin';
-            const headerContact = document.getElementById('header-contact');
-            const headerFee = document.getElementById('header-fee');
-
-            if (headerContact) headerContact.style.display = isAdmin ? '' : 'none';
-            if (headerFee) headerFee.style.display = isAdmin ? '' : 'none';
+            // Update table headers based on user role (done in renderPatientsTable)
           }
         } catch (e) {
           console.error(e);
@@ -1884,13 +1878,21 @@
           ? list.filter((patient) => (patient.name || '').toLowerCase().includes(normalizedSearch))
           : list;
 
+        // Update table headers visibility based on user role
+        const isAdmin = currentUser.role === 'Admin';
+        const adminColumns = document.querySelectorAll('.admin-only-column');
+        adminColumns.forEach((col) => {
+          col.style.display = isAdmin ? '' : 'none';
+        });
+
         if (filteredList.length === 0) {
           const emptyMessage = normalizedSearch
             ? 'No patients match your search.'
             : 'No records found.';
+          const colspanCount = isAdmin ? 12 : 9;
           tbody.innerHTML = `
             <tr>
-              <td colspan="12" class="p-6 text-center text-gray-400">${emptyMessage}</td>
+              <td colspan="${colspanCount}" class="p-6 text-center text-gray-400">${emptyMessage}</td>
             </tr>`;
           return;
         }
@@ -2021,13 +2023,8 @@
                             }</td>
                             <td class="px-3 py-2 text-gray-600 whitespace-nowrap">${areaDisplay}</td>
                             <td class="px-3 py-2 text-gray-600 whitespace-nowrap">${drugDisplay}</td>
-                            <td class="px-3 py-2 font-semibold text-green-700 whitespace-nowrap">${fee}</td>
                             <td class="px-3 py-2 text-gray-600 whitespace-nowrap text-xs">${formattedAdmissionDate}</td>
                             <td class="px-3 py-2 text-center text-gray-700 font-medium whitespace-nowrap text-xs">${daysProgress}</td>
-                            <td class="px-3 py-2 font-semibold text-blue-700 whitespace-nowrap">${receivedAmount}</td>
-                            <td class="px-3 py-2 font-semibold ${
-                              pendingValue > 0 ? 'text-red-600' : 'text-green-700'
-                            } whitespace-nowrap">${pendingAmount}</td>
                             <td class="px-3 py-2 text-right">${actionControls}</td>`;
           }
           tbody.appendChild(tr);
@@ -2259,6 +2256,12 @@
 
       // --- PATIENT DETAILS & CALENDAR ---
       window.showPatientDetail = function (id) {
+        // Restrict access for General Staff and Canteen
+        if (currentUser.role === 'General Staff' || currentUser.role === 'Canteen') {
+          showSuccessModal('You do not have permission to view patient details.', true);
+          return;
+        }
+
         currentPatientId = id;
         const p = patientsData.find((x) => (x._id || x.id) === id);
         if (!p) return;
@@ -5623,7 +5626,7 @@
                 <th class="px-3 py-2 text-left whitespace-nowrap font-semibold text-xs">Drug</th>
                 <th
                   id="header-fee"
-                  class="px-3 py-2 text-left whitespace-nowrap font-semibold text-xs"
+                  class="px-3 py-2 text-left whitespace-nowrap font-semibold text-xs admin-only-column"
                 >
                   Fee
                 </th>
@@ -5633,10 +5636,16 @@
                 <th class="px-3 py-2 text-center whitespace-nowrap font-semibold text-xs">
                   Days Done
                 </th>
-                <th class="px-3 py-2 text-left whitespace-nowrap font-semibold text-xs">
+                <th
+                  id="header-received"
+                  class="px-3 py-2 text-left whitespace-nowrap font-semibold text-xs admin-only-column"
+                >
                   Received Amt
                 </th>
-                <th class="px-3 py-2 text-left whitespace-nowrap font-semibold text-xs">
+                <th
+                  id="header-pending"
+                  class="px-3 py-2 text-left whitespace-nowrap font-semibold text-xs admin-only-column"
+                >
                   Pending Amt
                 </th>
                 <th class="px-3 py-2 text-right whitespace-nowrap font-semibold text-xs">
