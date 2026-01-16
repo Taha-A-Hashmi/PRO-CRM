@@ -339,7 +339,7 @@ def get_dashboard_metrics():
         # 1. Basic Counts
         total_patients = mongo.db.patients.count_documents({})
         admissions_this_month = mongo.db.patients.count_documents({
-            'created_at': {'$gte': start_of_month, '$lt': end_of_month}
+            'admissionDate': {'$gte': start_of_month.isoformat(), '$lt': end_of_month.isoformat()}
         })
         discharges_this_month = mongo.db.patients.count_documents({
             'isDischarged': True,
